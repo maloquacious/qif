@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
 import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
+
+	"github.com/mdhender/qif/qif"
 )
 
 // ImportBuffer does
-func ImportBuffer(buf []byte) (*File, error) {
-	f := File{}
+func ImportBuffer(buf []byte) (*qif.File, error) {
+	f := qif.File{}
 
 	lineNo, autoSwitch := 0, false
 	for len(buf) > 0 {
@@ -124,7 +126,7 @@ func ImportBuffer(buf []byte) (*File, error) {
 }
 
 // ImportFile does
-func ImportFile(file string) (*File, error) {
+func ImportFile(file string) (*qif.File, error) {
 
 	buf, err := ioutil.ReadFile(file)
 	if err != nil {

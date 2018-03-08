@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
-import "fmt"
+import (
+	"fmt"
 
-func accountDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*AccountDetail, err error) {
-	var detail *AccountDetail
+	"github.com/mdhender/qif/qif"
+)
+
+func accountDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.AccountDetail, err error) {
+	var detail *qif.AccountDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -38,7 +42,7 @@ func accountDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsum
 			}
 			continue
 		} else if detail == nil {
-			detail = &AccountDetail{}
+			detail = &qif.AccountDetail{}
 		}
 
 		switch input[0] {

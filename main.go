@@ -18,7 +18,7 @@ import (
 	"log"
 
 	"github.com/mdhender/qif/config"
-	"github.com/mdhender/qif/qif"
+	"github.com/mdhender/qif/qif/reader"
 )
 
 // go : generate stringer --type=LexemeKind qif
@@ -33,7 +33,7 @@ func main() {
 	for key, val := range cfg.InputFiles {
 		log.Printf("%05d: %s\n", key, val)
 
-		_, err := qif.ImportFile(val)
+		_, err := reader.ImportFile(val)
 		if err != nil {
 			log.Fatal(err)
 		}

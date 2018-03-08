@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
-import "fmt"
+import (
+	"fmt"
 
-func tagDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*TagDetail, err error) {
-	var detail *TagDetail
+	"github.com/mdhender/qif/qif"
+)
+
+func tagDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.TagDetail, err error) {
+	var detail *qif.TagDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -38,7 +42,7 @@ func tagDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed i
 			}
 			continue
 		} else if detail == nil {
-			detail = &TagDetail{}
+			detail = &qif.TagDetail{}
 		}
 
 		switch input[0] {

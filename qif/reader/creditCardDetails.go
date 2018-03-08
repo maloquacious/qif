@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
-import "fmt"
+import (
+	"fmt"
 
-func creditCardDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*CreditCardDetail, err error) {
-	var detail *CreditCardDetail
+	"github.com/mdhender/qif/qif"
+)
+
+func creditCardDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.CreditCardDetail, err error) {
+	var detail *qif.CreditCardDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -38,7 +42,7 @@ func creditCardDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesCon
 			}
 			continue
 		} else if detail == nil {
-			detail = &CreditCardDetail{}
+			detail = &qif.CreditCardDetail{}
 		}
 
 		switch input[0] {
@@ -50,7 +54,7 @@ func creditCardDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesCon
 			detail.Date = bufToDate(input[1:])
 		case 'E': // Memo in split
 			if detail.Split == nil {
-				detail.Split = append(detail.Split, &Split{})
+				detail.Split = append(detail.Split, &qif.Split{})
 			}
 			detail.Split[len(detail.Split)-1].Memo = string(input[1:])
 		case 'L': // Category (Category/Subcategory/Transfer/Class)
@@ -64,12 +68,12 @@ func creditCardDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesCon
 		case 'T': // Amount (TODO: what type?)
 			detail.AmountTCode = bufToCurrency(input[1:])
 		case 'S': // Category in split (Category/Transfer/Class)
-			detail.Split = append(detail.Split, &Split{Category: string(input[1:])})
+			detail.Split = append(detail.Split, &qif.Split{Category: string(input[1:])})
 		case 'U': // Amount (TODO: what type?)
 			detail.AmountUCode = bufToCurrency(input[1:])
 		case '$': // Dollar amount of split
 			if detail.Split == nil {
-				detail.Split = append(detail.Split, &Split{})
+				detail.Split = append(detail.Split, &qif.Split{})
 			}
 			detail.Split[len(detail.Split)-1].Amount = bufToCurrency(input[1:])
 		default:

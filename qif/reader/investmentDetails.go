@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
-func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*InvestmentDetail, err error) {
+import "github.com/mdhender/qif/qif"
+
+func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.InvestmentDetail, err error) {
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
 		bytesConsumed, _, err := readline(buf)

@@ -12,12 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package qif
+package reader
 
-import "fmt"
+import (
+	"fmt"
 
-func categoryDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*CategoryDetail, err error) {
-	var detail *CategoryDetail
+	"github.com/mdhender/qif/qif"
+)
+
+func categoryDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.CategoryDetail, err error) {
+	var detail *qif.CategoryDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -38,7 +42,7 @@ func categoryDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsu
 			}
 			continue
 		} else if detail == nil {
-			detail = &CategoryDetail{
+			detail = &qif.CategoryDetail{
 				IsExpense: true,
 			}
 		}
