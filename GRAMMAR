@@ -1,0 +1,22 @@
+start:
+
+bang: BANG ACCOUNT accountDetails
+bang: BANG CLEAR COLON AUTOSWITCH
+bang: BANG OPTION COLON AUTOSWITCH
+bang: BANG TYPE COLON BANK bankDetails
+bang: BANG TYPE COLON CATEGORY categoryDetails 
+bang: BANG TYPE COLON CCARD creditCardDetails
+bang: BANG TYPE COLON INVEST investmentDetails
+bang: BANG TYPE COLON MEMORIZED memorizedTransactionDetails
+bang: BANG TYPE COLON PRICES priceDetails
+bang: BANG TYPE COLON TAG tagDetails
+
+accountDetails: accountDetail+
+
+accountDetail: ((statementBalanceDate | statementBalance | description | creditLimit | name | accountType) EOL)+ CARET EOL
+
+// " 2/ 2'18"
+// "11/22'16"
+date: QUOTE ((SPACE DIGIT) | (DIGIT DIGIT)) SLASH ((SPACE DIGIT) | (DIGIT DIGIT)) TIC DIGIT DIGIT
+
+detailDate: (DIGIT DIGIT?) SLASH (SPACE | DIGIT) DIGIT TIC DIGIT DIGIT
