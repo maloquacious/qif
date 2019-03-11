@@ -18,8 +18,8 @@ import (
 	"github.com/mdhender/qif/qif"
 )
 
-func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.InvestmentDetail, err error) {
-	var detail *qif.InvestmentDetail
+func cashDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.CashDetail, err error) {
+	var detail *qif.CashDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -40,7 +40,7 @@ func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesCon
 			}
 			continue
 		} else if detail == nil {
-			detail = &qif.InvestmentDetail{}
+			detail = &qif.CashDetail{}
 		}
 
 		detail.Raw = append(detail.Raw, string(input))

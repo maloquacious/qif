@@ -17,13 +17,19 @@ package qif
 // File contains the data imported from the QIF file.
 type File struct {
 	Account               AccountDetail
-	Accounts              []*AccountDetail
-	Banks                 []*BankDetail
-	Categories            []*CategoryDetail
-	CreditCards           []*CreditCardDetail
-	Investments           []*InvestmentDetail
-	MemorizedTransactions []*MemorizedTransactionDetail
-	Tags                  []*TagDetail
+	Accounts              [][]*AccountDetail
+	Banks                 [][]*BankDetail
+	Budget                [][]*BudgetDetail
+	Cash                  [][]*CashDetail
+	Categories            [][]*CategoryDetail
+	CreditCards           [][]*CreditCardDetail
+	Investments           [][]*InvestmentDetail
+	MemorizedTransactions [][]*MemorizedTransactionDetail
+	OtherAssets           [][]*OtherAssetDetail
+	OtherLiabilities      [][]*OtherLiabilityDetail
+	Prices                [][]*PriceDetail
+	Securities            [][]*SecurityDetail
+	Tags                  [][]*TagDetail
 }
 
 // AccountDetail is
@@ -48,6 +54,16 @@ type BankDetail struct {
 	Num           string // (check or reference number)
 	Payee         string
 	Split         []*Split
+}
+
+// BudgetDetail is
+type BudgetDetail struct {
+	Raw []string
+}
+
+// CashDetail is
+type CashDetail struct {
+	Raw []string
 }
 
 // CategoryDetail is
@@ -75,6 +91,7 @@ type CreditCardDetail struct {
 
 // InvestmentDetail is
 type InvestmentDetail struct {
+	Raw []string
 }
 
 // MemorizedTransactionDetail is
@@ -93,6 +110,24 @@ type MemorizedTransactionDetail struct {
 	Split                    []*Split
 }
 
+// OtherAssetDetail is
+type OtherAssetDetail struct {
+	Raw []string
+}
+
+// OtherLiabilityDetail is
+type OtherLiabilityDetail struct {
+	Raw []string
+}
+
+// PriceDetail is
+type PriceDetail struct {
+	Raw    []string
+	Symbol string
+	Price  string
+	Date   string
+}
+
 // Split allows a detail line to be split into multiple transfers
 type Split struct {
 	Amount   int    // Dollar amount of split
@@ -100,7 +135,17 @@ type Split struct {
 	Memo     string // in split
 }
 
+// SecurityDetail is
+type SecurityDetail struct {
+	Description string
+	Label       string
+	Risk        string
+	Symbol      string
+	Type        string
+}
+
 // TagDetail is
 type TagDetail struct {
-	Label string
+	Description string
+	Label       string
 }

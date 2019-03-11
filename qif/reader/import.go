@@ -25,6 +25,7 @@ import (
 
 // ImportBuffer does
 func ImportBuffer(buf []byte) (*qif.File, error) {
+	debug := false
 	f := qif.File{}
 
 	lineNo, autoSwitch := 0, false
@@ -39,7 +40,9 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 
 		switch {
 		case bytes.Compare(input, []byte("!Account")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := accountDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
@@ -47,7 +50,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 				return nil, err
 			}
 			if autoSwitch {
-				f.Accounts = details
+				f.Accounts = append(f.Accounts, details)
 			} else if len(details) == 1 {
 				f.Account.Name = details[0].Name
 				f.Account.Type = details[0].Type
@@ -57,69 +60,150 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 				f.Account.StatementBalanceDate = details[0].StatementBalanceDate
 			}
 		case bytes.Compare(input, []byte("!Clear:AutoSwitch")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			autoSwitch = false
 		case bytes.Compare(input, []byte("!Option:AutoSwitch")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			autoSwitch = true
 		case bytes.Compare(input, []byte("!Type:Bank")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := bankDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.Banks = details
+			f.Banks = append(f.Banks, details)
+		case bytes.Compare(input, []byte("!Type:Budget")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := budgetDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.Budget = append(f.Budget, details)
+		case bytes.Compare(input, []byte("!Type:Cash")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := cashDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.Cash = append(f.Cash, details)
 		case bytes.Compare(input, []byte("!Type:Cat")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := categoryDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.Categories = details
+			f.Categories = append(f.Categories, details)
 		case bytes.Compare(input, []byte("!Type:CCard")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := creditCardDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.CreditCards = details
+			f.CreditCards = append(f.CreditCards, details)
 		case bytes.Compare(input, []byte("!Type:Invst")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := investmentDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.Investments = details
+			f.Investments = append(f.Investments, details)
 		case bytes.Compare(input, []byte("!Type:Memorized")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := memorizedTransactionDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.MemorizedTransactions = details
+			f.MemorizedTransactions = append(f.MemorizedTransactions, details)
+		case bytes.Compare(input, []byte("!Type:Oth A")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := otherAssetDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.OtherAssets = append(f.OtherAssets, details)
+		case bytes.Compare(input, []byte("!Type:Oth L")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := otherLiabilityDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.OtherLiabilities = append(f.OtherLiabilities, details)
+		case bytes.Compare(input, []byte("!Type:Prices")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := priceDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.Prices = append(f.Prices, details)
+		case bytes.Compare(input, []byte("!Type:Security")) == 0:
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
+			bytesConsumed, linesConsumed, details, err := securityDetails(buf, lineNo)
+			buf = buf[bytesConsumed:]
+			lineNo += linesConsumed
+			if err != nil {
+				return nil, err
+			}
+			f.Securities = append(f.Securities, details)
 		case bytes.Compare(input, []byte("!Type:Tag")) == 0:
-			log.Printf("%5d: %s\n", lineNo, string(input))
+			if debug {
+				log.Printf("%5d: %s\n", lineNo, string(input))
+			}
 			bytesConsumed, linesConsumed, details, err := tagDetails(buf, lineNo)
 			buf = buf[bytesConsumed:]
 			lineNo += linesConsumed
 			if err != nil {
 				return nil, err
 			}
-			f.Tags = details
+			f.Tags = append(f.Tags, details)
 		default:
 			return nil, fmt.Errorf("%d: invalid section %q", lineNo, string(input))
 		}
-
 	}
 
 	return &f, nil

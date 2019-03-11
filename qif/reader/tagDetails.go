@@ -46,6 +46,8 @@ func tagDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed i
 		}
 
 		switch input[0] {
+		case 'D':
+			detail.Description = string(input[1:])
 		case 'N':
 			detail.Label = string(input[1:])
 		default:

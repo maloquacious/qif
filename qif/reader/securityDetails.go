@@ -15,11 +15,13 @@
 package reader
 
 import (
+	"fmt"
+
 	"github.com/mdhender/qif/qif"
 )
 
-func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.InvestmentDetail, err error) {
-	var detail *qif.InvestmentDetail
+func securityDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesConsumed int, details []*qif.SecurityDetail, err error) {
+	var detail *qif.SecurityDetail
 
 	// the test for '!' stops us at the section
 	for len(buf) > 0 && buf[0] != '!' {
@@ -40,15 +42,27 @@ func investmentDetails(buf []byte, lineNo int) (totalBytesConsumed int, linesCon
 			}
 			continue
 		} else if detail == nil {
-			detail = &qif.InvestmentDetail{}
+			detail = &qif.SecurityDetail{}
 		}
 
-		detail.Raw = append(detail.Raw, string(input))
+		switch input[0] {
+		case 'D':
+			detail.Description = string(input[1:])
+		case 'G':
+			detail.Risk = string(input[1:])
+		case 'N':
+			detail.Label = string(input[1:])
+		case 'S':
+			detail.Symbol = string(input[1:])
+		case 'T':
+			detail.Type = string(input[1:])
+		default:
+			return totalBytesConsumed, linesConsumed, details, fmt.Errorf("%d: unimplemented code tag/%q", lineNo+linesConsumed, string(input))
+		}
 	}
 
 	if detail != nil {
 		details = append(details, detail)
 	}
-
 	return totalBytesConsumed, linesConsumed, details, nil
 }

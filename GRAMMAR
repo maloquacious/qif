@@ -10,10 +10,22 @@ bang: BANG TYPE COLON INVEST investmentDetails
 bang: BANG TYPE COLON MEMORIZED memorizedTransactionDetails
 bang: BANG TYPE COLON PRICES priceDetails
 bang: BANG TYPE COLON TAG tagDetails
+bang: BANG TYPE COLON SECURITY securityDetails
 
 accountDetails: accountDetail+
 
 accountDetail: ((statementBalanceDate | statementBalance | description | creditLimit | name | accountType) EOL)+ CARET EOL
+
+securityDetails: securityDetail+
+securityDetail: G RISK
+securityDetail: N LABEL
+securityDetail: S SYMBOL
+securityDetail: T TYPE
+
+
+tagDetails: tagDetail+
+
+tagDetail: ??
 
 // " 2/ 2'18"
 // "11/22'16"

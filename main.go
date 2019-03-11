@@ -15,26 +15,31 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
 
-	"github.com/mdhender/qif/config"
 	"github.com/mdhender/qif/qif/reader"
 )
 
-// go : generate stringer --type=LexemeKind qif
-// go : generate stringer --type=lexerState qif
-
 func main() {
-	cfg := config.New()
-	if err := cfg.MergeFile("quicken/config.json"); err != nil {
-		log.Fatal(err)
+	testFiles := []string{
+		"quicken/mac",
+		"quicken/windows",
 	}
 
-	for key, val := range cfg.InputFiles {
+	for key, val := range testFiles {
 		log.Printf("%05d: %s\n", key, val)
 
-		_, err := reader.ImportFile(val)
+		q, err := reader.ImportFile(val + ".qif")
 		if err != nil {
+			log.Fatal(err)
+		}
+		js, err := json.MarshalIndent(q, "", "  ")
+		if err != nil {
+			log.Fatal(err)
+		}
+		if err = ioutil.WriteFile(val+".json", js, 0644); err != nil {
 			log.Fatal(err)
 		}
 	}
