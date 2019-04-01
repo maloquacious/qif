@@ -28,7 +28,17 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 	debug := false
 	f := qif.File{}
 
-	lineNo, autoSwitch := 0, false
+	// state will be
+	//    0 => never saw flag
+	//    1 => set flag first time
+	//    2 => cleared flag
+	//    3 => set flag two or more times
+	autoSwitchState := 0
+	accountDefineMode := false
+	accountAccumulateMode := false
+
+	var defaultAccount *qif.AccountDetail
+	lineNo := 0
 	for len(buf) > 0 {
 		lineNo++
 		bytesConsumed, input, err := readline(buf)
@@ -49,9 +59,28 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			if autoSwitch {
-				f.Accounts = append(f.Accounts, details)
-			} else if len(details) == 1 {
+			if accountDefineMode {
+				// there should never be duplicate accounts.
+				for _, acct := range details {
+					if f.Accounts[acct.Name] != nil {
+						return nil, fmt.Errorf("%d: duplicate account %q", lineNo, acct.Name)
+					}
+					f.Accounts[acct.Name] = acct
+				}
+			} else if accountAccumulateMode {
+				if len(details) == 0 {
+					return nil, fmt.Errorf("%d: missing account", lineNo)
+				} else if len(details) != 1 {
+					return nil, fmt.Errorf("%d: unexpected account %q", lineNo, details[1].Name)
+				}
+				defaultAccount = details[0]
+			} else {
+				// update the global account
+				if len(details) == 0 {
+					return nil, fmt.Errorf("%d: expected global account", lineNo)
+				} else if len(details) != 1 {
+					return nil, fmt.Errorf("%d: unexpected global account %q", lineNo, details[1].Name)
+				}
 				f.Account.Name = details[0].Name
 				f.Account.Type = details[0].Type
 				f.Account.CreditLimit = details[0].CreditLimit
@@ -60,15 +89,58 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 				f.Account.StatementBalanceDate = details[0].StatementBalanceDate
 			}
 		case bytes.Compare(input, []byte("!Clear:AutoSwitch")) == 0:
+			// when auto switch is false, the current account never changes.
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
 			}
-			autoSwitch = false
+			switch autoSwitchState {
+			case 0:
+				// odd. didn't set before clearing.
+				autoSwitchState = 2
+			case 1:
+				accountDefineMode = false
+				accountAccumulateMode = false
+			case 2:
+				// odd. didn't set before clearing.
+				accountDefineMode = false
+				accountAccumulateMode = false
+			case 3:
+				autoSwitchState = 2
+				accountDefineMode = false
+				accountAccumulateMode = false
+			}
 		case bytes.Compare(input, []byte("!Option:AutoSwitch")) == 0:
+			// There are two modes for AutoSwitch.
+			// If we haven't encountered Clear:AutoSwitch, then this
+			// declares a list of accounts in the file.
+			// That list ends with Clear:AutoSwitch (or the first non-Account
+			// line that follows).
+			// The other mode occurs when we have already declared the list
+			// of accounts. Now every reference to !Account changes the default
+			// account that transactions are saved to.
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
 			}
-			autoSwitch = true
+			switch autoSwitchState {
+			case 0:
+				// first time setting
+				autoSwitchState = 1
+				accountDefineMode = true
+				accountAccumulateMode = false
+			case 1:
+				// odd. never cleared the previous. jump.
+				autoSwitchState = 3
+				accountDefineMode = false
+				accountAccumulateMode = true
+			case 2:
+				autoSwitchState = 3
+				accountDefineMode = false
+				accountAccumulateMode = false
+			case 3:
+				// odd. never cleared the previous.
+				accountDefineMode = false
+				accountAccumulateMode = true
+			}
 		case bytes.Compare(input, []byte("!Type:Bank")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -79,7 +151,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Banks = append(f.Banks, details)
+			if defaultAccount == nil {
+				f.Banks = append(f.Banks, details...)
+			} else {
+				defaultAccount.Banks = append(defaultAccount.Banks, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Budget")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -90,7 +166,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Budget = append(f.Budget, details)
+			if defaultAccount == nil {
+				f.Budget = append(f.Budget, details...)
+			} else {
+				defaultAccount.Budget = append(defaultAccount.Budget, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Cash")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -101,7 +181,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Cash = append(f.Cash, details)
+			if defaultAccount == nil {
+				f.Cash = append(f.Cash, details...)
+			} else {
+				defaultAccount.Cash = append(defaultAccount.Cash, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Cat")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -112,7 +196,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Categories = append(f.Categories, details)
+			f.Categories = append(f.Categories, details...)
 		case bytes.Compare(input, []byte("!Type:CCard")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -123,7 +207,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.CreditCards = append(f.CreditCards, details)
+			if defaultAccount == nil {
+				f.CreditCards = append(f.CreditCards, details...)
+			} else {
+				defaultAccount.CreditCards = append(defaultAccount.CreditCards, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Invst")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -134,7 +222,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Investments = append(f.Investments, details)
+			if defaultAccount == nil {
+				f.Investments = append(f.Investments, details...)
+			} else {
+				defaultAccount.Investments = append(defaultAccount.Investments, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Memorized")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -145,7 +237,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.MemorizedTransactions = append(f.MemorizedTransactions, details)
+			f.MemorizedTransactions = append(f.MemorizedTransactions, details...)
 		case bytes.Compare(input, []byte("!Type:Oth A")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -156,7 +248,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.OtherAssets = append(f.OtherAssets, details)
+			f.OtherAssets = append(f.OtherAssets, details...)
 		case bytes.Compare(input, []byte("!Type:Oth L")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -167,7 +259,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.OtherLiabilities = append(f.OtherLiabilities, details)
+			f.OtherLiabilities = append(f.OtherLiabilities, details...)
 		case bytes.Compare(input, []byte("!Type:Prices")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -178,7 +270,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Prices = append(f.Prices, details)
+			f.Prices = append(f.Prices, details...)
 		case bytes.Compare(input, []byte("!Type:Security")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -189,7 +281,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Securities = append(f.Securities, details)
+			f.Securities = append(f.Securities, details...)
 		case bytes.Compare(input, []byte("!Type:Tag")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -200,7 +292,7 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.Tags = append(f.Tags, details)
+			f.Tags = append(f.Tags, details...)
 		default:
 			return nil, fmt.Errorf("%d: invalid section %q", lineNo, string(input))
 		}

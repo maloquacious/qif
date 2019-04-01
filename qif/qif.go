@@ -17,19 +17,19 @@ package qif
 // File contains the data imported from the QIF file.
 type File struct {
 	Account               AccountDetail
-	Accounts              [][]*AccountDetail
-	Banks                 [][]*BankDetail
-	Budget                [][]*BudgetDetail
-	Cash                  [][]*CashDetail
-	Categories            [][]*CategoryDetail
-	CreditCards           [][]*CreditCardDetail
-	Investments           [][]*InvestmentDetail
-	MemorizedTransactions [][]*MemorizedTransactionDetail
-	OtherAssets           [][]*OtherAssetDetail
-	OtherLiabilities      [][]*OtherLiabilityDetail
-	Prices                [][]*PriceDetail
-	Securities            [][]*SecurityDetail
-	Tags                  [][]*TagDetail
+	Accounts              map[string]*AccountDetail
+	Banks                 []*BankDetail
+	Budget                []*BudgetDetail
+	Cash                  []*CashDetail
+	Categories            []*CategoryDetail
+	CreditCards           []*CreditCardDetail
+	Investments           []*InvestmentDetail
+	MemorizedTransactions []*MemorizedTransactionDetail
+	OtherAssets           []*OtherAssetDetail
+	OtherLiabilities      []*OtherLiabilityDetail
+	Prices                []*PriceDetail
+	Securities            []*SecurityDetail
+	Tags                  []*TagDetail
 }
 
 // AccountDetail is
@@ -40,6 +40,11 @@ type AccountDetail struct {
 	Descr                string
 	StatementBalance     int
 	StatementBalanceDate string
+	Banks                []*BankDetail
+	Budget               []*BudgetDetail
+	Cash                 []*CashDetail
+	CreditCards          []*CreditCardDetail
+	Investments          []*InvestmentDetail
 }
 
 // BankDetail is
