@@ -26,7 +26,9 @@ import (
 // ImportBuffer does
 func ImportBuffer(buf []byte) (*qif.File, error) {
 	debug := false
-	f := qif.File{}
+	f := qif.File{
+		Accounts: make(map[string]*qif.AccountDetail),
+	}
 
 	// state will be
 	//    0 => never saw flag
