@@ -16,20 +16,20 @@ package qif
 
 // File contains the data imported from the QIF file.
 type File struct {
-	Account               AccountDetail
-	Accounts              map[string]*AccountDetail
-	Banks                 []*BankDetail
-	Budget                []*BudgetDetail
-	Cash                  []*CashDetail
-	Categories            []*CategoryDetail
-	CreditCards           []*CreditCardDetail
-	Investments           []*InvestmentDetail
-	MemorizedTransactions []*MemorizedTransactionDetail
-	OtherAssets           []*OtherAssetDetail
-	OtherLiabilities      []*OtherLiabilityDetail
-	Prices                []*PriceDetail
-	Securities            []*SecurityDetail
-	Tags                  []*TagDetail
+	Account               AccountDetail                 `json:"-"`
+	Accounts              []*AccountDetail              `json:",omitempty"`
+	Banks                 []*BankDetail                 `json:"-"`
+	Budget                []*BudgetDetail               `json:"-"`
+	Cash                  []*CashDetail                 `json:"-"`
+	Categories            []*CategoryDetail             `json:",omitempty"`
+	CreditCards           []*CreditCardDetail           `json:"-"`
+	Investments           []*InvestmentDetail           `json:"-"`
+	MemorizedTransactions []*MemorizedTransactionDetail `json:"-"`
+	OtherAssets           []*OtherAssetDetail           `json:"-"`
+	OtherLiabilities      []*OtherLiabilityDetail       `json:"-"`
+	Prices                []*PriceDetail                `json:"-"`
+	Securities            []*SecurityDetail             `json:"-"`
+	Tags                  []*TagDetail                  `json:",omitempty"`
 }
 
 // AccountDetail is
@@ -40,11 +40,13 @@ type AccountDetail struct {
 	Descr                string
 	StatementBalance     int
 	StatementBalanceDate string
-	Banks                []*BankDetail
-	Budget               []*BudgetDetail
-	Cash                 []*CashDetail
-	CreditCards          []*CreditCardDetail
-	Investments          []*InvestmentDetail
+	Banks                []*BankDetail           `json:",omitempty"`
+	Budget               []*BudgetDetail         `json:",omitempty"`
+	Cash                 []*CashDetail           `json:",omitempty"`
+	CreditCards          []*CreditCardDetail     `json:",omitempty"`
+	Investments          []*InvestmentDetail     `json:",omitempty"`
+	OtherAssets          []*OtherAssetDetail     `json:",omitempty"`
+	OtherLiabilities     []*OtherLiabilityDetail `json:",omitempty"`
 }
 
 // BankDetail is

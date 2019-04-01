@@ -26,9 +26,8 @@ import (
 // ImportBuffer does
 func ImportBuffer(buf []byte) (*qif.File, error) {
 	debug := false
-	f := qif.File{
-		Accounts: make(map[string]*qif.AccountDetail),
-	}
+	accountMap := make(map[string]*qif.AccountDetail)
+	f := qif.File{}
 
 	// state will be
 	//    0 => never saw flag
@@ -64,10 +63,10 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if accountDefineMode {
 				// there should never be duplicate accounts.
 				for _, acct := range details {
-					if f.Accounts[acct.Name] != nil {
+					if accountMap[acct.Name] != nil {
 						return nil, fmt.Errorf("%d: duplicate account %q", lineNo, acct.Name)
 					}
-					f.Accounts[acct.Name] = acct
+					accountMap[acct.Name] = acct
 				}
 			} else if accountAccumulateMode {
 				if len(details) == 0 {
@@ -75,7 +74,10 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 				} else if len(details) != 1 {
 					return nil, fmt.Errorf("%d: unexpected account %q", lineNo, details[1].Name)
 				}
-				defaultAccount = details[0]
+				defaultAccount = accountMap[details[0].Name]
+				if defaultAccount == nil {
+					return nil, fmt.Errorf("%d: undefined account %q", lineNo, details[0].Name)
+				}
 			} else {
 				// update the global account
 				if len(details) == 0 {
@@ -250,7 +252,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.OtherAssets = append(f.OtherAssets, details...)
+			if defaultAccount == nil {
+				f.OtherAssets = append(f.OtherAssets, details...)
+			} else {
+				defaultAccount.OtherAssets = append(defaultAccount.OtherAssets, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Oth L")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -261,7 +267,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			f.OtherLiabilities = append(f.OtherLiabilities, details...)
+			if defaultAccount == nil {
+				f.OtherLiabilities = append(f.OtherLiabilities, details...)
+			} else {
+				defaultAccount.OtherLiabilities = append(defaultAccount.OtherLiabilities, details...)
+			}
 		case bytes.Compare(input, []byte("!Type:Prices")) == 0:
 			if debug {
 				log.Printf("%5d: %s\n", lineNo, string(input))
@@ -298,6 +308,11 @@ func ImportBuffer(buf []byte) (*qif.File, error) {
 		default:
 			return nil, fmt.Errorf("%d: invalid section %q", lineNo, string(input))
 		}
+	}
+
+	// move accounts from our map to the returned structure
+	for _, acct := range accountMap {
+		f.Accounts = append(f.Accounts, acct)
 	}
 
 	return &f, nil
