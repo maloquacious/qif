@@ -16,10 +16,10 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
-	"log"
-
+	"fmt"
 	"github.com/mdhender/qif/qif/reader"
+	"github.com/pkg/errors"
+	"io/ioutil"
 )
 
 func main() {
@@ -28,19 +28,28 @@ func main() {
 		"quicken/windows",
 	}
 
-	for key, val := range testFiles {
-		log.Printf("%05d: %s\n", key, val)
+	var errs []error
+	for _, val := range testFiles {
+		fmt.Printf("testing %q\n", val)
 
 		q, err := reader.ImportFile(val + ".qif")
 		if err != nil {
-			log.Fatal(err)
+			errs = append(errs, errors.Wrap(err, "importing "+val+".qif"))
+			continue
 		}
 		js, err := json.MarshalIndent(q, "", "  ")
 		if err != nil {
-			log.Fatal(err)
+			errs = append(errs, errors.Wrap(err, "marshaling "+val+".qif"))
+			continue
 		}
 		if err = ioutil.WriteFile(val+".json", js, 0644); err != nil {
-			log.Fatal(err)
+			errs = append(errs, errors.Wrap(err, "writing "+val+".json"))
+			continue
 		}
+		fmt.Println("created " + val + ".json")
+	}
+
+	for _, err := range errs {
+		fmt.Printf("error: %+v\n", err)
 	}
 }
