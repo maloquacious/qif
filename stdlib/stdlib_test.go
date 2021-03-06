@@ -112,3 +112,39 @@ func TestDate(t *testing.T) {
 		t.Errorf("input of %q yields %q: expected value is %q\n", input, yields, expected)
 	}
 }
+
+func TestFlipSign(t *testing.T) {
+	// Specification: Amounts
+
+	// When "0.00" is flipped
+	// Then it has the value "0.00"
+	amount, expected := "0.00", "0.00"
+	yields := stdlib.FlipSign(amount)
+	if expected != yields {
+		t.Errorf("input of %q yields %q: expected value is %q\n", amount, yields, expected)
+	}
+
+	// When "12.45" is flipped
+	// Then it has the value "-12.45"
+	amount, expected = "12.45", "-12.45"
+	yields = stdlib.FlipSign(amount)
+	if expected != yields {
+		t.Errorf("input of %q yields %q: expected value is %q\n", amount, yields, expected)
+	}
+
+	// When "-12.45" is flipped
+	// Then it has the value "12.45"
+	amount, expected = "-12.45", "12.45"
+	yields = stdlib.FlipSign(amount)
+	if expected != yields {
+		t.Errorf("input of %q yields %q: expected value is %q\n", amount, yields, expected)
+	}
+
+	// When "" is flipped
+	// Then it has the value "0.00"
+	amount, expected = "", "0.00"
+	yields = stdlib.FlipSign(amount)
+	if expected != yields {
+		t.Errorf("input of %q yields %q: expected value is %q\n", amount, yields, expected)
+	}
+}
