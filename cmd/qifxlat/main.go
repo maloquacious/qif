@@ -69,11 +69,15 @@ func run(cfg *Config) error {
 	}
 
 	var totalRecords int
-	if r.Accounts != nil {
+	if r.Accounts == nil {
+		fmt.Printf("import: read %8d accounts\n", 0)
+	} else {
 		fmt.Printf("import: read %8d accounts\n", len(r.Accounts.Records))
 		totalRecords += len(r.Accounts.Records)
 	}
-	if r.Categories != nil {
+	if r.Categories == nil {
+		fmt.Printf("import: read %8d categories\n", 0)
+	} else {
 		fmt.Printf("import: read %8d categories\n", len(r.Categories.Records))
 		totalRecords += len(r.Categories.Records)
 	}
@@ -81,11 +85,15 @@ func run(cfg *Config) error {
 	totalRecords += len(r.Memorized)
 	fmt.Printf("import: read %8d prices\n", len(r.Prices))
 	totalRecords += len(r.Prices)
-	if r.Securities != nil {
+	if r.Securities == nil {
+		fmt.Printf("import: read %8d securities\n", 0)
+	} else {
 		fmt.Printf("import: read %8d securities\n", len(r.Securities.Records))
 		totalRecords += len(r.Securities.Records)
 	}
-	if r.Tags != nil {
+	if r.Tags == nil {
+		fmt.Printf("import: read %8d tags\n", 0)
+	} else {
 		fmt.Printf("import: read %8d tags\n", len(r.Tags.Records))
 	}
 	fmt.Printf("import: read %8d transactions\n", len(r.Transactions))
