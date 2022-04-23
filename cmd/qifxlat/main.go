@@ -77,10 +77,10 @@ func run(cfg *Config) error {
 		fmt.Printf("import: read %8d categories\n", len(r.Categories.Records))
 		totalRecords += len(r.Categories.Records)
 	}
-	totalRecords += len(r.Memorized)
 	fmt.Printf("import: read %8d memorized\n", len(r.Memorized))
-	totalRecords += len(r.Prices)
+	totalRecords += len(r.Memorized)
 	fmt.Printf("import: read %8d prices\n", len(r.Prices))
+	totalRecords += len(r.Prices)
 	if r.Securities != nil {
 		fmt.Printf("import: read %8d securities\n", len(r.Securities.Records))
 		totalRecords += len(r.Securities.Records)
@@ -88,8 +88,8 @@ func run(cfg *Config) error {
 	if r.Tags != nil {
 		fmt.Printf("import: read %8d tags\n", len(r.Tags.Records))
 	}
-	totalRecords += len(r.Transactions)
 	fmt.Printf("import: read %8d transactions\n", len(r.Transactions))
+	totalRecords += len(r.Transactions)
 
 	if cfg.Show.Timing {
 		duration := time.Now().Sub(started)
