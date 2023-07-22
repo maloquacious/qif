@@ -28,7 +28,7 @@ package transaction
 
 import (
 	"fmt"
-	"github.com/mdhender/qif/scanner"
+	"github.com/maloquacious/qif/scanner"
 )
 
 type Section struct {

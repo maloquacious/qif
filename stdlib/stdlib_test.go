@@ -25,7 +25,7 @@
 package stdlib_test
 
 import (
-	"github.com/mdhender/qif/stdlib"
+	"github.com/maloquacious/qif/stdlib"
 	"testing"
 )
 

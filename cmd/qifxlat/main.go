@@ -27,11 +27,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/mdhender/qif/reader"
-	"github.com/mdhender/qif/scanner"
-	cdata "github.com/mdhender/qif/writer/csv"
-	jdata "github.com/mdhender/qif/writer/json"
-	ldata "github.com/mdhender/qif/writer/ledger"
+	"github.com/maloquacious/qif/reader"
+	"github.com/maloquacious/qif/scanner"
+	cdata "github.com/maloquacious/qif/writer/csv"
+	jdata "github.com/maloquacious/qif/writer/json"
+	ldata "github.com/maloquacious/qif/writer/ledger"
 	"io/ioutil"
 	"os"
 	"time"

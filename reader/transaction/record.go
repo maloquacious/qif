@@ -26,8 +26,8 @@ package transaction
 
 import (
 	"fmt"
-	"github.com/mdhender/qif/scanner"
-	"github.com/mdhender/qif/stdlib"
+	"github.com/maloquacious/qif/scanner"
+	"github.com/maloquacious/qif/stdlib"
 	"strings"
 )
 

@@ -28,8 +28,8 @@ package json
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/mdhender/qif/normalizer"
-	"github.com/mdhender/qif/reader"
+	"github.com/maloquacious/qif/normalizer"
+	"github.com/maloquacious/qif/reader"
 	"io"
 )
 

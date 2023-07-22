@@ -33,12 +33,12 @@ package reader
 
 import (
 	"fmt"
-	"github.com/mdhender/qif/reader/account"
-	"github.com/mdhender/qif/reader/category"
-	"github.com/mdhender/qif/reader/security"
-	"github.com/mdhender/qif/reader/tag"
-	"github.com/mdhender/qif/reader/transaction"
-	"github.com/mdhender/qif/scanner"
+	"github.com/maloquacious/qif/reader/account"
+	"github.com/maloquacious/qif/reader/category"
+	"github.com/maloquacious/qif/reader/security"
+	"github.com/maloquacious/qif/reader/tag"
+	"github.com/maloquacious/qif/reader/transaction"
+	"github.com/maloquacious/qif/scanner"
 )
 
 type Reader struct {

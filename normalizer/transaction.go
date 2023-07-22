@@ -24,7 +24,7 @@
 
 package normalizer
 
-import "github.com/mdhender/qif/reader/transaction"
+import "github.com/maloquacious/qif/reader/transaction"
 
 type Transaction struct {
 	Line          int

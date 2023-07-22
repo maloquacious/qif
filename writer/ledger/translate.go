@@ -27,9 +27,9 @@ package ledger
 
 import (
 	"fmt"
-	"github.com/mdhender/qif/normalizer"
-	"github.com/mdhender/qif/reader"
-	"github.com/mdhender/qif/stdlib"
+	"github.com/maloquacious/qif/normalizer"
+	"github.com/maloquacious/qif/reader"
+	"github.com/maloquacious/qif/stdlib"
 )
 
 func Translate(r *reader.Reader) (*LEDGER, error) {

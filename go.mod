@@ -1,4 +1,4 @@
-module github.com/mdhender/qif
+module github.com/maloquacious/qif
 
 go 1.15
 
