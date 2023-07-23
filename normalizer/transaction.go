@@ -55,6 +55,7 @@ type Split struct {
 	Category string
 	IsZero   bool
 	Memo     string
+	Ticker   string
 }
 
 func Transactions(transactions []*transaction.Record) []*Transaction {
@@ -81,9 +82,7 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 				Category: t.Category,
 				IsZero:   t.AmountTCode == "" || t.AmountTCode == "0.00",
 				Memo:     t.Memo,
-			}
-			if split.Category == "" && xact.Ticker != "" {
-				split.Category = xact.Ticker
+				Ticker:   t.Ticker,
 			}
 			xact.Split = append(xact.Split, &split)
 			if !split.IsZero {
