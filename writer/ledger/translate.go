@@ -37,9 +37,9 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 
 	for _, t := range normalizer.Transactions(r.Transactions) {
 		// most transactions in ledger require the opposite of the QIF sign
-		if t.Payee == "Opening Balance" {
-			fmt.Printf("%06d: %5q %q %d\n", t.Line, t.Type, t.Payee, len(t.Split))
-		}
+		//if t.Payee == "Opening Balance" {
+		//	fmt.Printf("%06d: %5q %q %d\n", t.Line, t.Type, t.Payee, len(t.Split))
+		//}
 		flipSign := doFlipSign(t.Type, t.Payee, len(t.Split))
 
 		e := &Entry{
@@ -60,16 +60,16 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 			}
 
 			amount := split.Amount
-			if t.Payee == "Opening Balance" {
-				fmt.Printf("%06d: %5q %q %d %v %q\n", t.Line, t.Type, t.Payee, len(t.Split), flipSign, amount)
-			}
+			//if t.Payee == "Opening Balance" {
+			//	fmt.Printf("%06d: %5q %q %d %v %q\n", t.Line, t.Type, t.Payee, len(t.Split), flipSign, amount)
+			//}
 			if amount == "" {
 				amount = "0.00"
 			} else if flipSign {
 				amount = stdlib.FlipSign(amount)
-				if t.Payee == "Opening Balance" {
-					fmt.Printf("%06d: %5q %q %d %v %q\n", t.Line, t.Type, t.Payee, len(t.Split), flipSign, amount)
-				}
+				//if t.Payee == "Opening Balance" {
+				//	fmt.Printf("%06d: %5q %q %d %v %q\n", t.Line, t.Type, t.Payee, len(t.Split), flipSign, amount)
+				//}
 			}
 			line.Amount = amount
 
