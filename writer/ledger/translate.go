@@ -75,15 +75,15 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 
 			if line.Category == "" {
 				line.Category, line.Source = split.Account, "account"
-			}
-			if line.Category == "" {
-				line.Category, line.Source = split.Category, "category"
-			}
-			if line.Category == "" {
-				line.Category, line.Source = split.Memo, "memo"
-			}
-			if line.Category == "" {
-				line.Category, line.Source = "Missing Category", "none"
+				if line.Category == "" {
+					line.Category, line.Source = split.Category, "category"
+					if line.Category == "" {
+						line.Category, line.Source = split.Memo, "memo"
+						if line.Category == "" {
+							line.Category, line.Source = "Missing Category", "none"
+						}
+					}
+				}
 			}
 
 			if !line.IsZero {

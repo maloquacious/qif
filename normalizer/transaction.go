@@ -70,6 +70,7 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 			Memo:          t.Memo,
 			Payee:         t.Payee,
 			RefNo:         t.RefNo,
+			Ticker:        t.Ticker,
 		}
 		if len(t.Split) == 0 {
 			xact.Memo = ""
@@ -80,6 +81,9 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 				Category: t.Category,
 				IsZero:   t.AmountTCode == "" || t.AmountTCode == "0.00",
 				Memo:     t.Memo,
+			}
+			if split.Category == "" && xact.Ticker != "" {
+				split.Category = xact.Ticker
 			}
 			xact.Split = append(xact.Split, &split)
 			if !split.IsZero {
