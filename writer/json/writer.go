@@ -82,44 +82,48 @@ type Split struct {
 func Translate(r *reader.Reader) (*JSON, error) {
 	var j JSON
 
-	for _, account := range r.Accounts.Records {
-		var typ string
-		switch account.Type {
-		case "Bank":
-			typ = "bank"
-		case "CCard":
-			typ = "creditCard"
-		case "Cash":
-			typ = "cash"
-		case "Oth A":
-			typ = "asset"
-		case "Oth L":
-			typ = "liability"
-		case "Port":
-			typ = "brokerage"
-		case "401(k)/403(b)":
-			typ = "retirement"
-		default:
-			panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+	if r.Accounts != nil {
+		for _, account := range r.Accounts.Records {
+			var typ string
+			switch account.Type {
+			case "Bank":
+				typ = "bank"
+			case "CCard":
+				typ = "creditCard"
+			case "Cash":
+				typ = "cash"
+			case "Oth A":
+				typ = "asset"
+			case "Oth L":
+				typ = "liability"
+			case "Port":
+				typ = "brokerage"
+			case "401(k)/403(b)":
+				typ = "retirement"
+			default:
+				panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+			}
+			j.Accounts = append(j.Accounts, Account{
+				Type:                 typ,
+				Name:                 account.Name,
+				CreditLimit:          account.CreditLimit,
+				Description:          account.Description,
+				StatementBalance:     account.StatementBalance,
+				StatementBalanceDate: account.StatementBalanceDate,
+			})
 		}
-		j.Accounts = append(j.Accounts, Account{
-			Type:                 typ,
-			Name:                 account.Name,
-			CreditLimit:          account.CreditLimit,
-			Description:          account.Description,
-			StatementBalance:     account.StatementBalance,
-			StatementBalanceDate: account.StatementBalanceDate,
-		})
 	}
 
-	for _, category := range r.Categories.Records {
-		j.Categories = append(j.Categories, Category{
-			Name:        category.Name,
-			Description: category.Description,
-			Income:      category.IsIncome,
-			TaxRelated:  category.IsTaxRelated,
-			TaxSchedule: category.TaxSchedule,
-		})
+	if r.Categories != nil {
+		for _, category := range r.Categories.Records {
+			j.Categories = append(j.Categories, Category{
+				Name:        category.Name,
+				Description: category.Description,
+				Income:      category.IsIncome,
+				TaxRelated:  category.IsTaxRelated,
+				TaxSchedule: category.TaxSchedule,
+			})
+		}
 	}
 
 	for _, transaction := range normalizer.Transactions(r.Transactions) {
