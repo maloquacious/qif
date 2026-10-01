@@ -1,7 +1,7 @@
 /*
  * qif - a package to convert QIF data
  *
- * Copyright (c) 2026 Michael D Henderson
+ * Copyright (c) 2021 Michael D Henderson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,21 +22,30 @@
  * SOFTWARE.
  */
 
-// Package qif converts QIF (Quicken Interchange Format) data.
-package qif
+package transaction
 
-import (
-	"github.com/maloquacious/semver"
-)
+import "testing"
 
-// Version returns the version of the qif module. The build metadata is the
-// VCS commit the binary was built from (see semver.Commit).
-func Version() semver.Version {
-	return semver.Version{
-		Major:      0,
-		Minor:      5,
-		Patch:      0,
-		PreRelease: "",
-		Build:      semver.Commit(),
+// TestParseCategory is a regression test for issue #14: the class after "/"
+// must be split off before the brackets of a transfer account are removed.
+func TestParseCategory(t *testing.T) {
+	for _, tc := range []struct {
+		in                       string
+		category, account, class string
+	}{
+		{in: "Food", category: "Food"},
+		{in: "Food:Groceries", category: "Food:Groceries"},
+		{in: "Food/Business", category: "Food", class: "Business"},
+		{in: "[Checking]", account: "Checking"},
+		{in: "[Checking]/Business", account: "Checking", class: "Business"},
+		{in: "[My Acct]/Biz", account: "My Acct", class: "Biz"},
+		{in: ""},
+		{in: "/Business", class: "Business"},
+	} {
+		category, account, class := parseCategory(tc.in)
+		if category != tc.category || account != tc.account || class != tc.class {
+			t.Errorf("parseCategory(%q): want (%q, %q, %q), got (%q, %q, %q)",
+				tc.in, tc.category, tc.account, tc.class, category, account, class)
+		}
 	}
 }

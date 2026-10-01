@@ -50,7 +50,7 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 - `ReadRecord` loops over the field codes:
   - Each single-occurrence field is guarded by `if x == nil`, so a repeated field ends the loop. Then `^` is required, otherwise it's a "missing record terminator" error.
   - Repeatable fields (address `A`, splits `S`/`E`/`$`, budget `B`) append instead.
-  - Field order matters when codes share a prefix: `L[` (transfer) must be tried before `L` (category).
+  - A transaction's `L` value and a split's `S` value go through `parseCategory`, which separates `Category[:Sub]` or `[TransferAccount]` from the optional `/Class`.
 
   To support a new field code, add a branch to that loop.
 
