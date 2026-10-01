@@ -77,7 +77,7 @@ func ReadRecord(sc scanner.Scanner) (*Record, scanner.Scanner, error) {
 		}
 		if taxRelated == nil {
 			if taxRelated, sc = sc.Field("T"); taxRelated != nil {
-				found, record.IsTaxRelated = true, false
+				found, record.IsTaxRelated = true, true
 				continue
 			}
 		}
