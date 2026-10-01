@@ -156,3 +156,24 @@ func TestFlipSign(t *testing.T) {
 		t.Errorf("input of %q yields %q: expected value is %q\n", amount, yields, expected)
 	}
 }
+
+func TestDateInvalidMonth(t *testing.T) {
+	// Specification: Dates
+
+	// When the month is outside the range 1 through 12
+	// Then the date is invalid
+	for _, tc := range []struct {
+		input    string
+		expected string
+	}{
+		{"13/01'16", "****/**/**"},
+		{"0/01'16", "****/**/**"},
+		{"00/15'16", "****/**/**"},
+		{"12/31'16", "2016/12/31"},
+	} {
+		yields := stdlib.Date([]byte(tc.input))
+		if tc.expected != yields {
+			t.Errorf("input of %q yields %q: expected value is %q\n", tc.input, yields, tc.expected)
+		}
+	}
+}
