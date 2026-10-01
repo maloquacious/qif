@@ -27,6 +27,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/maloquacious/qif"
 	"github.com/peterbourgon/ff/v3"
 	"os"
 )
@@ -41,7 +42,8 @@ type Config struct {
 		Ledger string
 	}
 	Show struct {
-		Timing bool
+		Timing  bool
+		Version bool
 	}
 }
 
@@ -55,12 +57,18 @@ func config() (*Config, error) {
 	fs.StringVar(&cfg.Output.JSON, "output-json-filename", cfg.Output.JSON, "file to write JSON data to")
 	fs.StringVar(&cfg.Output.Ledger, "output-ledger-filename", cfg.Output.Ledger, "file to write Ledger data to")
 	fs.BoolVar(&cfg.Show.Timing, "show-timing", cfg.Show.Timing, "display timing of stages")
+	fs.BoolVar(&cfg.Show.Version, "version", cfg.Show.Version, "display the version and exit")
 	_ = fs.String("config", "", "config file (optional)")
 
 	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("QIFXLAT"), ff.WithConfigFileFlag("config"), ff.WithConfigFileParser(ff.PlainParser)); err != nil {
 		return nil, err
 	}
 
+	if cfg.Show.Version {
+		return &cfg, nil
+	}
+
+	fmt.Printf("%-30s == %q\n", "version", qif.Version().String())
 	if cfg.Input.QIF == "" {
 		return nil, fmt.Errorf("please provide the name of the QIF file to translate\n")
 	}
