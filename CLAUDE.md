@@ -89,6 +89,7 @@ Each writer package has `Translate(*reader.Reader) (*T, error)` and `(*T).Write(
 ## Workflow
 
 - Bugs and planned work are tracked as GitHub issues; check `gh issue list` before changing anything nearby.
+- **Bugs before features.** While any issue labeled `bug` is open, don't start an `enhancement` issue unless the human has explicitly approved working on that specific issue. Fix the open bugs first (`gh issue list --label bug`). When asked for a feature while bugs are open, list the open bugs and ask before proceeding. Approval for one feature doesn't extend to the next.
 - Work on an issue goes on its own branch (`fix/<n>-<slug>`). The PR body includes `Fixes #<n>`, and PRs are squash-merged.
 - Changes not tied to an issue (repository upkeep, agent docs) are committed directly to `main` and pushed. Don't open a branch or PR for them.
 - Add a regression test with each fix.
