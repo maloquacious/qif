@@ -161,7 +161,7 @@ func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scann
 		}
 		if splitAmount, bb := sc.Field("$"); splitAmount != nil {
 			if split == nil {
-				split = &Split{Line: bb.Line}
+				split = &Split{Line: sc.Line, Col: sc.Col}
 				record.Split = append(record.Split, split)
 			}
 			found, split.Amount = true, string(splitAmount)
@@ -169,7 +169,7 @@ func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scann
 			continue
 		}
 		if splitCategory, bb := sc.Field("S"); splitCategory != nil {
-			split = &Split{Line: bb.Line}
+			split = &Split{Line: sc.Line, Col: sc.Col}
 			found, record.Split = true, append(record.Split, split)
 			split.Category, split.Account, split.Class = parseCategory(string(splitCategory))
 			sc = bb
@@ -177,7 +177,7 @@ func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scann
 		}
 		if splitMemo, bb := sc.Field("E"); splitMemo != nil {
 			if split == nil {
-				split = &Split{Line: bb.Line}
+				split = &Split{Line: sc.Line, Col: sc.Col}
 				record.Split = append(record.Split, split)
 			}
 			found, split.Memo = true, string(splitMemo)

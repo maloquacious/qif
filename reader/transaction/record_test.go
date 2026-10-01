@@ -82,3 +82,39 @@ func TestReadRecordSplitTransferWithClass(t *testing.T) {
 		t.Errorf("Amount: want %q, got %q", want, split.Amount)
 	}
 }
+
+// TestReadRecordSplitLine is a regression test for issue #15.
+// Each split must record the line and column of the field that starts it.
+func TestReadRecordSplitLine(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		input string
+		lines []int
+	}{
+		{"S starts splits", "D1/ 2'16\nT-30.00\nSFood\n$-10.00\nSGas\nEfill-up\n$-20.00\n^\n", []int{3, 5}},
+		{"$ starts split", "D1/ 2'16\nT-30.00\n$-30.00\nEnote\n^\n", []int{3}},
+		{"E starts split", "D1/ 2'16\nT-30.00\nEnote\n$-30.00\n^\n", []int{3}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sc, err := scanner.New([]byte(tc.input))
+			if err != nil {
+				t.Fatalf("scanner.New: unexpected error: %v", err)
+			}
+			record, _, err := transaction.ReadRecord(sc, "Chk", "Bank")
+			if err != nil {
+				t.Fatalf("ReadRecord: unexpected error: %v", err)
+			}
+			if record == nil || len(record.Split) != len(tc.lines) {
+				t.Fatalf("ReadRecord: want %d splits, got %+v", len(tc.lines), record)
+			}
+			for i, split := range record.Split {
+				if split.Line != tc.lines[i] {
+					t.Errorf("split %d: Line: want %d, got %d", i, tc.lines[i], split.Line)
+				}
+				if want := 1; split.Col != want {
+					t.Errorf("split %d: Col: want %d, got %d", i, want, split.Col)
+				}
+			}
+		})
+	}
+}
