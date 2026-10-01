@@ -125,14 +125,16 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 			sc = bb
 			continue
 		}
-		if section, bb, err := transaction.ReadSection(sc, r.active.account, r.active.accountType); err != nil {
-			return nil, err
-		} else if section != nil {
-			for _, xact := range section.Records {
-				r.Transactions = append(r.Transactions, xact)
+		if r.active.accountType != "" {
+			if section, bb, err := transaction.ReadSection(sc, r.active.account, r.active.accountType); err != nil {
+				return nil, err
+			} else if section != nil {
+				for _, xact := range section.Records {
+					r.Transactions = append(r.Transactions, xact)
+				}
+				sc = bb
+				continue
 			}
-			sc = bb
-			continue
 		}
 		if section, bb, err := transaction.ReadSection(sc, "", "Memorized"); err != nil {
 			return nil, err
@@ -151,6 +153,14 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 			}
 			sc = bb
 			continue
+		}
+		if r.active.accountType == "" {
+			for _, accountType := range []string{"Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L"} {
+				header := "!Type:" + accountType
+				if literal, _ := sc.Literal(header); literal != nil {
+					return nil, fmt.Errorf("%d:%d: transaction section %q found before any !Account header", sc.Line, sc.Col, header)
+				}
+			}
 		}
 		return nil, fmt.Errorf("%d:%d: unexpected input", sc.Line, sc.Col)
 	}
