@@ -33,15 +33,17 @@ import (
 	cdata "github.com/maloquacious/qif/writer/csv"
 	jdata "github.com/maloquacious/qif/writer/json"
 	ldata "github.com/maloquacious/qif/writer/ledger"
+	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"time"
 )
 
 func main() {
 	cfg, err := config()
 	if err != nil {
-		fmt.Printf("%+v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		os.Exit(2)
 	}
 
@@ -51,7 +53,7 @@ func main() {
 	}
 
 	if err = run(cfg); err != nil {
-		fmt.Printf("%+v\n", err)
+		fmt.Fprintf(os.Stderr, "%+v\n", err)
 		os.Exit(2)
 	}
 }
@@ -113,19 +115,11 @@ func run(cfg *Config) error {
 	if cfg.Output.CSV != "" {
 		started := time.Now()
 
-		fp, err := os.Create(cfg.Output.CSV)
-		if err != nil {
-			return err
-		}
 		data, err := cdata.Translate(r)
 		if err != nil {
 			return err
 		}
-		err = data.Write(fp)
-		if err != nil {
-			return err
-		}
-		err = fp.Close()
+		err = writeFile(cfg.Output.CSV, data.Write)
 		if err != nil {
 			return err
 		}
@@ -139,19 +133,11 @@ func run(cfg *Config) error {
 	if cfg.Output.JSON != "" {
 		started := time.Now()
 
-		fp, err := os.Create(cfg.Output.JSON)
-		if err != nil {
-			return err
-		}
 		data, err := jdata.Translate(r)
 		if err != nil {
 			return err
 		}
-		err = data.Write(fp)
-		if err != nil {
-			return err
-		}
-		err = fp.Close()
+		err = writeFile(cfg.Output.JSON, data.Write)
 		if err != nil {
 			return err
 		}
@@ -165,19 +151,11 @@ func run(cfg *Config) error {
 	if cfg.Output.Ledger != "" {
 		started := time.Now()
 
-		fp, err := os.Create(cfg.Output.Ledger)
-		if err != nil {
-			return err
-		}
 		data, err := ldata.Translate(r)
 		if err != nil {
 			return err
 		}
-		err = data.Write(fp)
-		if err != nil {
-			return err
-		}
-		err = fp.Close()
+		err = writeFile(cfg.Output.Ledger, data.Write)
 		if err != nil {
 			return err
 		}
@@ -193,5 +171,34 @@ func run(cfg *Config) error {
 		fmt.Printf("qif: finished run  in %v\n", duration)
 	}
 
+	return nil
+}
+
+// writeFile calls write to produce the contents of the file at path.
+// It writes to a temporary file in the same directory and renames it
+// onto path only after write succeeds, so an error never leaves a
+// partial or empty file and never replaces an existing one.
+func writeFile(path string, write func(io.Writer) error) error {
+	fp, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	tmp := fp.Name()
+	if err = write(fp); err == nil {
+		err = fp.Chmod(0644)
+	}
+	if err != nil {
+		_ = fp.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err = fp.Close(); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if err = os.Rename(tmp, path); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
 	return nil
 }
