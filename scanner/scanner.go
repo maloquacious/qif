@@ -193,17 +193,20 @@ func (buf Scanner) EndOfSection() ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// Literal will accept a literal.
-// The buffer's line and col variables will be hosed if the literal has an embedded newline.
+// Literal will accept a literal and consume the rest of the line.
+// On a match, the lexeme is the text between the literal and the end of the line;
+// it is never nil, even when empty. On no match, the lexeme is nil.
+// The literal must not contain a newline, since Line and Col are not adjusted for one.
 func (buf Scanner) Literal(lit string) ([]byte, Scanner) {
 	if !bytes.HasPrefix(buf.Buffer, []byte(lit)) {
 		return nil, buf
 	}
+	// skip the literal (we don't return it as part of the lexeme)
+	buf.Buffer, buf.Col = buf.Buffer[len(lit):], buf.Col+len(lit)
 
-	lexeme := bdup(buf.Buffer[len(lit):])
-
-	// consume to the end of the line
-	_, buf = buf.ToEndOfLine()
+	// read the lexeme and consume to the end of the line
+	var lexeme []byte
+	lexeme, buf = buf.ToEndOfLine()
 
 	// return the lexeme and updated buffer
 	return lexeme, buf
