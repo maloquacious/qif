@@ -28,6 +28,7 @@ package transaction
 
 import (
 	"fmt"
+	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/scanner"
 )
 
@@ -37,16 +38,25 @@ type Section struct {
 	Records []*Record `json:"records,omitempty"`
 }
 
-func ReadSection(sc scanner.Scanner, account, accountType string) (*Section, scanner.Scanner, error) {
+// ReadSection reads the transaction section for an account. The section
+// header is the one for the account's type (see account.TransactionType),
+// so the transactions of a "Port" account are read from a "!Type:Invst"
+// section. Each record keeps the account's own type. The accountType may
+// also be "Memorized" or "Prices" for those sections.
+func ReadSection(sc scanner.Scanner, accountName, accountType string) (*Section, scanner.Scanner, error) {
 	saved, sname, section := sc, "transactions", Section{Line: sc.Line, Col: sc.Col}
 
 	var literal string
 	switch accountType {
-	case "Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L", "Memorized", "Prices":
+	case "Memorized", "Prices":
 		literal = "!Type:" + accountType
 	default:
-		// unknown (or empty) account type, so this can't be a transaction section
-		return nil, saved, nil
+		transactionType, ok := account.TransactionType(accountType)
+		if !ok {
+			// unknown (or empty) account type, so this can't be a transaction section
+			return nil, saved, nil
+		}
+		literal = "!Type:" + transactionType
 	}
 	lit, bb := sc.Literal(literal)
 	if lit == nil {
@@ -58,7 +68,7 @@ func ReadSection(sc scanner.Scanner, account, accountType string) (*Section, sca
 	var err error
 	for {
 		var record *Record
-		record, sc, err = ReadRecord(sc, account, accountType)
+		record, sc, err = ReadRecord(sc, accountName, accountType)
 		if err != nil {
 			return nil, sc, fmt.Errorf("%d: %s: %w", section.Line, sname, err)
 		} else if record == nil {

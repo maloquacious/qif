@@ -22,21 +22,43 @@
  * SOFTWARE.
  */
 
-// Package qif converts QIF (Quicken Interchange Format) data.
-package qif
+package account_test
 
 import (
-	"github.com/maloquacious/semver"
+	"reflect"
+	"testing"
+
+	"github.com/maloquacious/qif/reader/account"
 )
 
-// Version returns the version of the qif module. The build metadata is the
-// VCS commit the binary was built from (see semver.Commit).
-func Version() semver.Version {
-	return semver.Version{
-		Major:      0,
-		Minor:      4,
-		Patch:      0,
-		PreRelease: "",
-		Build:      semver.Commit(),
+func TestTransactionType(t *testing.T) {
+	for _, tc := range []struct {
+		accountType string
+		want        string
+		ok          bool
+	}{
+		{"Bank", "Bank", true},
+		{"Cash", "Cash", true},
+		{"CCard", "CCard", true},
+		{"Invst", "Invst", true},
+		{"Oth A", "Oth A", true},
+		{"Oth L", "Oth L", true},
+		{"Port", "Invst", true},
+		{"401(k)/403(b)", "Invst", true},
+		{"Mutual", "", false},
+		{"Memorized", "", false},
+		{"", "", false},
+	} {
+		got, ok := account.TransactionType(tc.accountType)
+		if got != tc.want || ok != tc.ok {
+			t.Errorf("TransactionType(%q): want %q, %v, got %q, %v", tc.accountType, tc.want, tc.ok, got, ok)
+		}
+	}
+}
+
+func TestTransactionTypes(t *testing.T) {
+	want := []string{"Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L"}
+	if got := account.TransactionTypes(); !reflect.DeepEqual(got, want) {
+		t.Errorf("TransactionTypes: want %q, got %q", want, got)
 	}
 }

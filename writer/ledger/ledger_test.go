@@ -28,6 +28,9 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"github.com/maloquacious/qif/reader"
+	"github.com/maloquacious/qif/reader/transaction"
 )
 
 // TestWriteCountsSkipped verifies that entries with no amounts are counted
@@ -62,5 +65,62 @@ func TestWriteCountsSkipped(t *testing.T) {
 	}
 	if strings.Contains(out, "Zero Entry") {
 		t.Errorf("output contains skipped entry:\n%s", out)
+	}
+}
+
+// openingBalance returns a reader holding a single-line opening balance
+// transaction for an account of the given type.
+func openingBalance(accountType string) *reader.Reader {
+	return &reader.Reader{Transactions: []*transaction.Record{{
+		Line: 7, Account: "Foo", Type: accountType, Date: "2016/01/02",
+		Payee: "Opening Balance", AmountTCode: "100.00", ToAccount: "Foo",
+	}}}
+}
+
+// TestTranslateUnknownAccountType verifies that an opening balance in an
+// account of unknown type is returned as an error instead of a panic (#12).
+func TestTranslateUnknownAccountType(t *testing.T) {
+	var err error
+	func() {
+		defer func() {
+			if p := recover(); p != nil {
+				t.Fatalf("Translate panicked: %v", p)
+			}
+		}()
+		_, err = Translate(openingBalance("Mutual"))
+	}()
+	if err == nil {
+		t.Fatal("Translate: expected error, got nil")
+	}
+	if want := `7: account "Foo": unknown account type "Mutual"`; err.Error() != want {
+		t.Errorf("Translate: want error %q, got %q", want, err)
+	}
+}
+
+// TestTranslateInvestmentOpeningBalance verifies that a single-line opening
+// balance in an investment account is not flipped, like the asset types (#12).
+func TestTranslateInvestmentOpeningBalance(t *testing.T) {
+	for _, typ := range []string{"Invst", "Port", "401(k)/403(b)"} {
+		t.Run(typ, func(t *testing.T) {
+			var l *LEDGER
+			var err error
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						t.Fatalf("Translate panicked: %v", p)
+					}
+				}()
+				l, err = Translate(openingBalance(typ))
+			}()
+			if err != nil {
+				t.Fatalf("Translate returned error: %v", err)
+			}
+			if len(l.Entries) != 1 || len(l.Entries[0].Lines) != 1 {
+				t.Fatalf("Translate: want 1 entry with 1 line, got %+v", l.Entries)
+			}
+			if got := l.Entries[0].Lines[0].Amount; got != "100.00" {
+				t.Errorf("Translate: amount: want %q, got %q", "100.00", got)
+			}
+		})
 	}
 }

@@ -37,7 +37,10 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 
 	for _, t := range normalizer.Transactions(r.Transactions) {
 		// most transactions in ledger require the opposite of the QIF sign
-		flipSign := doFlipSign(t.Type, t.Payee, len(t.Split))
+		flipSign, err := doFlipSign(t.Type, t.Payee, len(t.Split))
+		if err != nil {
+			return nil, fmt.Errorf("%d: account %q: %w", t.Line, t.Account, err)
+		}
 
 		e := &Entry{
 			Line:        t.Line,
@@ -96,25 +99,23 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 }
 
 // most transactions in ledger require the opposite of the QIF sign,
-// but a couple don't.
-func doFlipSign(accountType, payee string, numberOfLines int) bool {
+// but a couple don't. It returns an error for a single-line opening
+// balance in an account of unknown type.
+func doFlipSign(accountType, payee string, numberOfLines int) (bool, error) {
 	if payee != "Opening Balance" {
-		return true
+		return true, nil
 	}
 	if numberOfLines != 1 {
-		return true
+		return true, nil
 	}
 	switch accountType {
-	case "Bank":
-		return false
-	case "Cash":
-		return false
-	case "CCard":
-		return false
-	case "Oth A":
-		return false
-	case "Oth L":
-		return false
+	case "Bank", "Cash", "CCard", "Oth A", "Oth L":
+		return false, nil
+	case "Invst", "Port", "401(k)/403(b)":
+		// investment accounts are assets, so they follow the same rule as
+		// the asset types (Bank, Cash, Oth A): no flip for a single-line
+		// opening balance.
+		return false, nil
 	}
-	panic(fmt.Sprintf("assert(account.type != %q)", accountType))
+	return false, fmt.Errorf("unknown account type %q", accountType)
 }

@@ -26,6 +26,7 @@ package json_test
 
 import (
 	"github.com/maloquacious/qif/reader"
+	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/writer/json"
 	"testing"
@@ -53,5 +54,52 @@ func TestTranslateNilSections(t *testing.T) {
 				t.Fatalf("Translate returned error: %v", err)
 			}
 		})
+	}
+}
+
+// TestTranslateUnknownAccountType verifies that an unknown account type is
+// returned as an error instead of a panic (#12).
+func TestTranslateUnknownAccountType(t *testing.T) {
+	r := &reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{{Line: 12, Name: "Foo", Type: "Mutual"}}},
+	}
+	var err error
+	func() {
+		defer func() {
+			if p := recover(); p != nil {
+				t.Fatalf("Translate panicked: %v", p)
+			}
+		}()
+		_, err = json.Translate(r)
+	}()
+	if err == nil {
+		t.Fatal("Translate: expected error, got nil")
+	}
+	if want := `12: account "Foo": unknown account type "Mutual"`; err.Error() != want {
+		t.Errorf("Translate: want error %q, got %q", want, err)
+	}
+}
+
+// TestTranslateInvestmentAccount verifies that an Invst account is
+// translated (#12).
+func TestTranslateInvestmentAccount(t *testing.T) {
+	r := &reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{{Line: 3, Name: "Broker", Type: "Invst"}}},
+	}
+	var got *json.JSON
+	var err error
+	func() {
+		defer func() {
+			if p := recover(); p != nil {
+				t.Fatalf("Translate panicked: %v", p)
+			}
+		}()
+		got, err = json.Translate(r)
+	}()
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	if want := "investment"; len(got.Accounts) != 1 || got.Accounts[0].Type != want {
+		t.Errorf("Translate: want one account of type %q, got %+v", want, got.Accounts)
 	}
 }
