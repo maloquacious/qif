@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/maloquacious/qif/stdlib"
 )
 
 // Scanner
@@ -60,7 +62,8 @@ func New(input []byte) (Scanner, error) {
 }
 
 // Date will accept a date string which looks like
-//    digit digit? slash (space digit) digit tic digit digit
+//
+//	digit digit? slash (space digit) digit tic digit digit
 func (buf Scanner) Date(flag string) ([]byte, Scanner) {
 	saved := buf
 
@@ -112,7 +115,7 @@ func (buf Scanner) Date(flag string) ([]byte, Scanner) {
 	}
 	length += w
 
-	lexeme := bdate(buf.Buffer[:length])
+	lexeme := stdlib.Date(buf.Buffer[:length])
 	if lexeme == "****/**/**" {
 		return nil, saved
 	}
@@ -228,44 +231,8 @@ func (buf Scanner) ToEndOfLine() ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// bdate translates QIF date to a string with the date formatted as yyyy/mm/dd
-// The QIF date is formatted as mm/dd'yy. The month can be one or two digits
-// (eg, January is `1` while October is `10`). The day must be two characters,
-// but the first character may be a space instead of a zero. For example,
-// `01` and ` 1` are both the first day of the month. The year must be two
-// digits, and we're assuming it is always in the 21st century (eg, `16` is
-// converted to 2016, not 1916).
-func bdate(b []byte) string {
-	// 9/ 3'16 -> 2016/09/03
-	// 9/13'16 -> 2016/09/13
-	if len(b) == 7 && b[1] == '/' && b[4] == '\'' {
-		mm, dd, yy := b[0:1], b[2:4], b[5:]
-		return fmt.Sprintf("%4d/%02d/%02d", bint(yy)+2000, bint(mm), bint(dd))
-	}
-
-	// 12/ 9'16 -> 2016/12/09
-	// 12/19'16 -> 2016/12/19
-	if len(b) == 8 && b[2] == '/' && b[5] == '\'' {
-		mm, dd, yy := b[0:2], b[3:6], b[6:]
-		return fmt.Sprintf("%4d/%02d/%02d", bint(yy)+2000, bint(mm), bint(dd))
-	}
-
-	// invalid date
-	return "****/**/**"
-}
-
 func bdup(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)
 	return dst
-}
-
-// bint converts a slice to an int.
-func bint(b []byte) (i int) {
-	for pos := 0; pos < len(b); pos++ {
-		if '0' <= b[pos] && b[pos] <= '9' {
-			i = i*10 + int(b[pos]) - '0'
-		}
-	}
-	return i
 }

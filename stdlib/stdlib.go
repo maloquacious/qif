@@ -31,7 +31,9 @@ import (
 
 // Date translates QIF date to a string with the date formatted as yyyy/mm/dd.
 // The QIF date is a string which looks like
-//    digit digit? slash (space | digit) digit tic digit digit
+//
+//	digit digit? slash (space | digit) digit tic digit digit
+//
 // It is is formatted as mm/dd'yy. The month can be one or two digits
 // (eg, January is `1` while October is `10`). The day must be two characters,
 // but the first character may be a space instead of a zero. For example,
@@ -117,6 +119,8 @@ func Date(b []byte) string {
 				return "****/**/**"
 			}
 		}
+	default: // invalid month
+		return "****/**/**"
 	}
 
 	return fmt.Sprintf("%4d/%02d/%02d", yyyy, mm, dd)
