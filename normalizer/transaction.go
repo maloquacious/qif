@@ -53,6 +53,7 @@ type Split struct {
 	Account  string
 	Amount   string
 	Category string
+	Class    string
 	IsZero   bool
 	Memo     string
 	Ticker   string
@@ -80,6 +81,7 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 				Account:  t.ToAccount,
 				Amount:   t.AmountTCode,
 				Category: t.Category,
+				Class:    t.Class,
 				IsZero:   t.AmountTCode == "" || t.AmountTCode == "0.00",
 				Memo:     t.Memo,
 				Ticker:   t.Ticker,
@@ -96,6 +98,7 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 					Amount:   line.Amount,
 					IsZero:   line.Amount == "" || line.Amount == "0.00",
 					Category: line.Category,
+					Class:    line.Class,
 					Memo:     line.Memo,
 				}
 				if i == 0 && split.Account == "" {

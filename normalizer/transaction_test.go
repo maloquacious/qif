@@ -1,7 +1,7 @@
 /*
  * qif - a package to convert QIF data
  *
- * Copyright (c) 2026 Michael D Henderson
+ * Copyright (c) 2021 Michael D Henderson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,21 +22,34 @@
  * SOFTWARE.
  */
 
-// Package qif converts QIF (Quicken Interchange Format) data.
-package qif
+package normalizer_test
 
 import (
-	"github.com/maloquacious/semver"
+	"testing"
+
+	"github.com/maloquacious/qif/normalizer"
+	"github.com/maloquacious/qif/reader/transaction"
 )
 
-// Version returns the version of the qif module. The build metadata is the
-// VCS commit the binary was built from (see semver.Commit).
-func Version() semver.Version {
-	return semver.Version{
-		Major:      0,
-		Minor:      5,
-		Patch:      0,
-		PreRelease: "",
-		Build:      semver.Commit(),
+// TestTransactionsClass is a regression test for issue #14: the class must
+// reach the split, including the split synthesized for a non-split transaction.
+func TestTransactionsClass(t *testing.T) {
+	records := []*transaction.Record{
+		{Line: 1, Type: "Bank", AmountTCode: "-10.00", Category: "Food", Class: "Business"},
+		{Line: 5, Type: "Bank", AmountTCode: "-10.00", Split: []*transaction.Split{
+			{Line: 7, Account: "Savings", Amount: "-10.00", Class: "Biz"},
+		}},
+	}
+	got := normalizer.Transactions(records)
+	if len(got) != 2 {
+		t.Fatalf("Transactions: want 2 transactions, got %d", len(got))
+	}
+	for i, want := range []string{"Business", "Biz"} {
+		if len(got[i].Split) != 1 {
+			t.Fatalf("transaction %d: want 1 split, got %d", i, len(got[i].Split))
+		}
+		if got[i].Split[0].Class != want {
+			t.Errorf("transaction %d: Class: want %q, got %q", i, want, got[i].Split[0].Class)
+		}
 	}
 }

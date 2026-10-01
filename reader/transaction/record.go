@@ -39,7 +39,8 @@ type Record struct {
 	AmountTCode   string
 	AmountUCode   string
 	BudgetAmount  []string
-	Category      string // Category/Subcategory/Transfer/Class
+	Category      string // Category[:Subcategory...], without the class
+	Class         string // the class from L, after the "/"
 	ClearedStatus string
 	Commission    string
 	Date          string
@@ -62,14 +63,30 @@ type Split struct {
 	Account  string `json:"account,omitempty"`
 	Amount   string `json:"amount,omitempty"`
 	Category string `json:"category,omitempty"`
+	Class    string `json:"class,omitempty"`
 	Memo     string `json:"memo,omitempty"`
+}
+
+// parseCategory splits the value of an L or S field, which has the form
+// Category[:Subcategory...][/Class] or [TransferAccount][/Class], into its
+// category, transfer account and class. The class starts at the first "/",
+// since Quicken does not allow "/" in category names. Only one of category
+// and account is set.
+func parseCategory(s string) (category, account, class string) {
+	if i := strings.Index(s, "/"); i != -1 {
+		s, class = s[:i], s[i+1:]
+	}
+	if strings.HasPrefix(s, "[") {
+		return "", strings.TrimSuffix(s[1:], "]"), class
+	}
+	return s, "", class
 }
 
 func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scanner.Scanner, error) {
 	saved, sname, record := sc, "transaction", Record{Line: sc.Line, Col: sc.Col, Account: account, Type: accountType}
 
 	var found bool
-	var category, cleared, commission, date, interest, memo, memorized, payee, qty, refNo, ticker, tcode, toAccount, ucode []byte
+	var category, cleared, commission, date, interest, memo, memorized, payee, qty, refNo, ticker, tcode, ucode []byte
 	var split *Split
 	for {
 		if addrLine, bb := sc.Field("A"); addrLine != nil {
@@ -154,11 +171,7 @@ func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scann
 		if splitCategory, bb := sc.Field("S"); splitCategory != nil {
 			split = &Split{Line: bb.Line}
 			found, record.Split = true, append(record.Split, split)
-			split.Category = string(splitCategory)
-			if strings.HasPrefix(split.Category, "[") {
-				split.Account = strings.Trim(split.Category, "[]")
-				split.Category = ""
-			}
+			split.Category, split.Account, split.Class = parseCategory(string(splitCategory))
 			sc = bb
 			continue
 		}
@@ -189,17 +202,10 @@ func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scann
 				continue
 			}
 		}
-
-		// category must follow toAccount since they share a common prefix
-		if toAccount == nil {
-			if toAccount, sc = sc.Field("L["); toAccount != nil {
-				found, record.ToAccount = true, strings.TrimRight(string(toAccount), "]")
-				continue
-			}
-		}
 		if category == nil {
 			if category, sc = sc.Field("L"); category != nil {
-				found, record.Category = true, string(category)
+				found = true
+				record.Category, record.ToAccount, record.Class = parseCategory(string(category))
 				continue
 			}
 		}
