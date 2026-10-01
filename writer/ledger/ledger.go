@@ -60,23 +60,32 @@ func (l *LEDGER) Swap(i, j int) {
 }
 
 func (l *LEDGER) Write(w io.Writer) error {
-	var skipped, written int
-
-	for _, e := range l.Entries {
-		// don't write entries that are missing amounts
-		if e.IsZero {
-			continue
-		}
-
-		err := e.Write(w)
-		if err != nil {
-			return err
-		}
-		written++
+	skipped, written, err := l.write(w)
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("ledger: skipped   %8d entries\n", skipped)
 	fmt.Printf("ledger: wrote     %8d entries\n", written)
 
 	return nil
+}
+
+// write writes the entries to w and returns the number of entries
+// skipped and written.
+func (l *LEDGER) write(w io.Writer) (skipped, written int, err error) {
+	for _, e := range l.Entries {
+		// don't write entries that are missing amounts
+		if e.IsZero {
+			skipped++
+			continue
+		}
+
+		if err := e.Write(w); err != nil {
+			return skipped, written, err
+		}
+		written++
+	}
+
+	return skipped, written, nil
 }
