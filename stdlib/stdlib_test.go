@@ -81,8 +81,16 @@ func TestDate(t *testing.T) {
 	}
 
 	// When "2/29'00" is converted
+	// Then it has the value "2000/02/29"
+	input, expected = "2/29'00", "2000/02/29"
+	yields = stdlib.Date([]byte(input))
+	if expected != yields {
+		t.Errorf("input of %q yields %q: expected value is %q\n", input, yields, expected)
+	}
+
+	// When "2/30'00" is converted
 	// Then it has the value "****/**/**"
-	input, expected = "2/29'00", "****/**/**"
+	input, expected = "2/30'00", "****/**/**"
 	yields = stdlib.Date([]byte(input))
 	if expected != yields {
 		t.Errorf("input of %q yields %q: expected value is %q\n", input, yields, expected)

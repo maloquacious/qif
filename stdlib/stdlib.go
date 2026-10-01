@@ -108,7 +108,7 @@ func Date(b []byte) string {
 			return "****/**/**"
 		}
 	case 2: // february
-		if yyyy%4 == 0 && yyyy != 2000 { // leap year
+		if yyyy%4 == 0 { // leap year (years are always 2000-2099)
 			if !(1 <= dd && dd <= 29) {
 				return "****/**/**"
 			}
