@@ -83,37 +83,39 @@ func Translate(r *reader.Reader) (*CSV, error) {
 	var c CSV
 	c.Map.Accounts = make(map[string]*Account)
 
-	for _, account := range r.Accounts.Records {
-		var typ string
-		switch account.Type {
-		case "Bank":
-			typ = "BNK"
-		case "CCard":
-			typ = "CCD"
-		case "Cash":
-			typ = "CSH"
-		case "Oth A":
-			typ = "ASS"
-		case "Oth L":
-			typ = "LBT"
-		case "Port":
-			typ = "BRK"
-		case "401(k)/403(b)":
-			typ = "RET"
-		default:
-			panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+	if r.Accounts != nil {
+		for _, account := range r.Accounts.Records {
+			var typ string
+			switch account.Type {
+			case "Bank":
+				typ = "BNK"
+			case "CCard":
+				typ = "CCD"
+			case "Cash":
+				typ = "CSH"
+			case "Oth A":
+				typ = "ASS"
+			case "Oth L":
+				typ = "LBT"
+			case "Port":
+				typ = "BRK"
+			case "401(k)/403(b)":
+				typ = "RET"
+			default:
+				panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+			}
+			a := &Account{
+				Line:                 account.Line,
+				Type:                 typ,
+				Name:                 account.Name,
+				CreditLimit:          account.CreditLimit,
+				Description:          account.Description,
+				StatementBalance:     account.StatementBalance,
+				StatementBalanceDate: account.StatementBalanceDate,
+			}
+			c.Accounts = append(c.Accounts, a)
+			c.Map.Accounts[account.Name] = a
 		}
-		a := &Account{
-			Line:                 account.Line,
-			Type:                 typ,
-			Name:                 account.Name,
-			CreditLimit:          account.CreditLimit,
-			Description:          account.Description,
-			StatementBalance:     account.StatementBalance,
-			StatementBalanceDate: account.StatementBalanceDate,
-		}
-		c.Accounts = append(c.Accounts, a)
-		c.Map.Accounts[account.Name] = a
 	}
 
 	for _, transaction := range normalizer.Transactions(r.Transactions) {
