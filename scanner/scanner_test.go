@@ -57,3 +57,48 @@ func TestDateRejectsInvalidMonth(t *testing.T) {
 		t.Errorf("input of %q yields %q: expected value is %q\n", input, date, expected)
 	}
 }
+
+func TestLiteralReturnsRestOfLine(t *testing.T) {
+	// When the literal is followed by text and more lines
+	// Then Literal returns only the rest of the line and advances past it
+	input := "!Type:Bank extra\nD12/31'16\n^\n"
+	sc, err := scanner.New([]byte(input))
+	if err != nil {
+		t.Fatalf("input of %q: unexpected error %v\n", input, err)
+	}
+	lexeme, rest := sc.Literal("!Type:Bank")
+	if expected := " extra"; string(lexeme) != expected {
+		t.Errorf("input of %q yields %q: expected value is %q\n", input, lexeme, expected)
+	}
+	if expected := "D12/31'16\n^\n"; string(rest.Buffer) != expected {
+		t.Errorf("input of %q advanced the scanner to %q: expected %q\n", input, rest.Buffer, expected)
+	}
+	if rest.Line != 2 {
+		t.Errorf("input of %q: line is %d: expected 2\n", input, rest.Line)
+	}
+
+	// When the literal is the whole line
+	// Then Literal returns an empty, non-nil lexeme and advances past the line
+	input = "!Account\nNChecking\n"
+	sc, err = scanner.New([]byte(input))
+	if err != nil {
+		t.Fatalf("input of %q: unexpected error %v\n", input, err)
+	}
+	lexeme, rest = sc.Literal("!Account")
+	if lexeme == nil || len(lexeme) != 0 {
+		t.Errorf("input of %q yields %#v: expected empty, non-nil lexeme\n", input, lexeme)
+	}
+	if expected := "NChecking\n"; string(rest.Buffer) != expected {
+		t.Errorf("input of %q advanced the scanner to %q: expected %q\n", input, rest.Buffer, expected)
+	}
+
+	// When the literal does not match
+	// Then Literal returns nil and the scanner is not advanced
+	lexeme, rest = sc.Literal("!Type:Cat")
+	if lexeme != nil {
+		t.Errorf("input of %q yields %q: expected no match\n", input, lexeme)
+	}
+	if string(rest.Buffer) != input {
+		t.Errorf("input of %q advanced the scanner to %q\n", input, rest.Buffer)
+	}
+}
