@@ -25,10 +25,14 @@
 package csv_test
 
 import (
+	"bytes"
+	encsv "encoding/csv"
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
+	"github.com/maloquacious/qif/reader/transaction"
 	"github.com/maloquacious/qif/writer/csv"
+	"strings"
 	"testing"
 )
 
@@ -101,5 +105,75 @@ func TestTranslateInvestmentAccount(t *testing.T) {
 	}
 	if want := "INV"; len(got.Accounts) != 1 || got.Accounts[0].Type != want {
 		t.Errorf("Translate: want one account of type %q, got %+v", want, got.Accounts)
+	}
+}
+
+// TestWriteLinkedSplits is a regression test for issue #16: the writer skips
+// the linked splits of an Oth L transaction, not the whole transaction, and
+// writes Oth L opening balances with the liability sign flip.
+func TestWriteLinkedSplits(t *testing.T) {
+	r := &reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{
+			{Line: 2, Name: "Checking", Type: "Bank"},
+			{Line: 4, Name: "Mortgage", Type: "Oth L"},
+		}},
+		Transactions: []*transaction.Record{
+			// opening balance: not linked, written, sign flipped
+			{Line: 10, Type: "Oth L", Account: "Mortgage", Date: "2021/01/01", Payee: "Opening Balance",
+				AmountTCode: "-1,000.00", ToAccount: "Mortgage"},
+			// single transfer: linked, skipped
+			{Line: 15, Type: "Oth L", Account: "Mortgage", Date: "2021/01/02", Payee: "Single",
+				AmountTCode: "100.00", ToAccount: "Checking"},
+			// transfer on split 0: only the category row is written
+			{Line: 20, Type: "Oth L", Account: "Mortgage", Date: "2021/01/03", Payee: "Split0",
+				AmountTCode: "90.00", Split: []*transaction.Split{
+					{Line: 22, Account: "Checking", Amount: "100.00"},
+					{Line: 24, Category: "Loan Fee", Amount: "-10.00"},
+				}},
+			// transfer on split 1: only the category row is written
+			{Line: 30, Type: "Oth L", Account: "Mortgage", Date: "2021/01/04", Payee: "Split1",
+				AmountTCode: "90.00", Split: []*transaction.Split{
+					{Line: 32, Category: "Loan Fee", Amount: "-20.00"},
+					{Line: 34, Account: "Checking", Amount: "110.00"},
+				}},
+			// category only: written
+			{Line: 40, Type: "Oth L", Account: "Mortgage", Date: "2021/01/05", Payee: "Interest",
+				AmountTCode: "-5.00", Category: "Interest"},
+			// Bank side of a transfer: written
+			{Line: 50, Type: "Bank", Account: "Checking", Date: "2021/01/06", Payee: "Payment",
+				AmountTCode: "-100.00", ToAccount: "Mortgage"},
+		},
+	}
+	c, err := csv.Translate(r)
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := c.Write(&buf); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	rows, err := encsv.NewReader(&buf).ReadAll()
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	// LINE, PAYEE, SLINE, TOACCT, CATEGORY, AMOUNT, FLIPPED
+	var got []string
+	for _, row := range rows[1:] {
+		got = append(got, strings.Join([]string{row[0], row[5], row[10], row[11], row[12], row[14], row[15]}, "|"))
+	}
+	want := []string{
+		"10|Opening Balance|10|Mortgage||1000.00|true",
+		"20|Split0|24||Loan Fee|-10.00|false",
+		"30|Split1|32||Loan Fee|-20.00|false",
+		"40|Interest|40||Interest|-5.00|false",
+		"50|Payment|50|Mortgage||-100.00|false",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("Write: want %d rows, got %d:\n%s", len(want), len(got), strings.Join(got, "\n"))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("row %d: want %q, got %q", i, want[i], got[i])
+		}
 	}
 }

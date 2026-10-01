@@ -54,6 +54,7 @@ type Split struct {
 	Amount   string
 	Category string
 	Class    string
+	IsLinked bool
 	IsZero   bool
 	Memo     string
 	Ticker   string
@@ -111,11 +112,16 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 			}
 		}
 
-		// flag the receiving half of linked transactions
-		if len(xact.Split) == 1 || xact.Payee != "Opening Balance" {
-			switch xact.Type {
-			case "Oth L":
-				xact.IsLinked = xact.Split[0].Account != ""
+		// flag the receiving half of linked transactions: on the Oth L side, a split
+		// that transfers to another account is the copy of a split recorded in that
+		// account. A transfer to the account itself (an opening balance) is not a link.
+		if xact.Type == "Oth L" {
+			xact.IsLinked = true
+			for _, split := range xact.Split {
+				split.IsLinked = split.Account != "" && split.Account != xact.Account
+				if !split.IsLinked {
+					xact.IsLinked = false
+				}
 			}
 		}
 

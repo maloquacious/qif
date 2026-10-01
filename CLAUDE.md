@@ -69,7 +69,7 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 `normalizer.Transactions` flattens `transaction.Record`s for the writers:
 - Every transaction gets at least one split; a transaction with no splits becomes one split from `T`/`L`.
 - It sets `IsZero` (no non-zero amount).
-- It sets `IsLinked` (the receiving half of an `Oth L` transfer, which the CSV writer skips).
+- In an `Oth L` transaction, it sets `IsLinked` on each split that transfers to *another* account (the copy of a split recorded in that account); a transfer to the account itself (an opening balance) is not a link. `Transaction.IsLinked` is true only when every split is linked. The CSV writer skips linked splits.
 
 ### writers
 

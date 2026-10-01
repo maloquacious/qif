@@ -75,6 +75,7 @@ type Split struct {
 	Account  string
 	Amount   string
 	Category string
+	IsLinked bool
 	IsZero   bool
 	Memo     string
 }
@@ -139,6 +140,7 @@ func Translate(r *reader.Reader) (*CSV, error) {
 				Account:  line.Account,
 				Amount:   line.Amount,
 				Category: line.Category,
+				IsLinked: line.IsLinked,
 				IsZero:   line.IsZero,
 				Memo:     line.Memo,
 			}
@@ -178,6 +180,10 @@ func (c *CSV) Write(w io.Writer) error {
 		var seq int
 		for _, split := range t.Split {
 			if split.IsZero { // skip splits that have zero amount
+				continue
+			}
+			if split.IsLinked { // skip splits that are the receiving end of a linked transaction
+				skipped++
 				continue
 			}
 
