@@ -26,9 +26,8 @@
 // converts it to structs with no attempt at cleaning up the data. If there
 // are errors that prevent parsing (mostly missing fields), it will return
 // only the first error found. The error should include the line and column
-// in the original data file to help with troubleshooting.
-//
-// There are some errors that just cause a panic. I'm not sure why.
+// in the original data file to help with troubleshooting. A second account
+// list, category list or tag list is an error.
 package reader
 
 import (
@@ -86,7 +85,7 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 					r.active.account = section.Records[0].Name
 					r.active.accountType = section.Records[0].Type
 				} else {
-					panic("!")
+					return nil, fmt.Errorf("%d:%d: duplicate account list (first at %d:%d)", sc.Line, sc.Col, r.Accounts.Line, r.Accounts.Col)
 				}
 			}
 			sc = bb
@@ -99,7 +98,7 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 				if r.Categories == nil {
 					r.Categories = section
 				} else {
-					panic("!")
+					return nil, fmt.Errorf("%d:%d: duplicate category list (first at %d:%d)", sc.Line, sc.Col, r.Categories.Line, r.Categories.Col)
 				}
 			}
 			sc = bb
@@ -127,7 +126,7 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 				if r.Tags == nil {
 					r.Tags = section
 				} else {
-					panic("!")
+					return nil, fmt.Errorf("%d:%d: duplicate tag list (first at %d:%d)", sc.Line, sc.Col, r.Tags.Line, r.Tags.Col)
 				}
 			}
 			sc = bb
