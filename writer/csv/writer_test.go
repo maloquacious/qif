@@ -177,3 +177,57 @@ func TestWriteLinkedSplits(t *testing.T) {
 		}
 	}
 }
+
+// TestTranslateUnknownTransactionAccount is a regression test for issue #18:
+// a transaction whose account is not in the account list is returned as an
+// error instead of a panic.
+func TestTranslateUnknownTransactionAccount(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		account string
+		wantErr string
+	}{
+		{"unknown account", "Savings", `42: transaction: account "Savings" is not in the account list`},
+		{"known account", "Checking", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &reader.Reader{
+				Accounts: &account.Section{Records: []*account.Record{{Line: 2, Name: "Checking", Type: "Bank"}}},
+				Transactions: []*transaction.Record{
+					{Line: 40, Type: "Bank", Account: "Checking", Date: "2021/01/01", Payee: "Deposit", AmountTCode: "10.00"},
+					{Line: 42, Type: "Bank", Account: tc.account, Date: "2021/01/01", Payee: "Fee", AmountTCode: "-1.00"},
+				},
+			}
+			var got *csv.CSV
+			var err error
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						t.Fatalf("Translate panicked: %v", p)
+					}
+				}()
+				got, err = csv.Translate(r)
+			}()
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatal("Translate: expected error, got nil")
+				}
+				if err.Error() != tc.wantErr {
+					t.Errorf("Translate: want error %q, got %q", tc.wantErr, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Translate returned error: %v", err)
+			}
+			if len(got.Transactions) != 2 {
+				t.Fatalf("Translate: want 2 transactions, got %d", len(got.Transactions))
+			}
+			for _, x := range got.Transactions {
+				if x.Account == nil || x.Account.Name != "Checking" {
+					t.Errorf("transaction %d: want account %q, got %+v", x.Line, "Checking", x.Account)
+				}
+			}
+		})
+	}
+}

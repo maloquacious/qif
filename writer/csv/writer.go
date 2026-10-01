@@ -122,9 +122,13 @@ func Translate(r *reader.Reader) (*CSV, error) {
 	}
 
 	for _, transaction := range normalizer.Transactions(r.Transactions) {
+		acct, ok := c.Map.Accounts[transaction.Account]
+		if !ok {
+			return nil, fmt.Errorf("%d: transaction: account %q is not in the account list", transaction.Line, transaction.Account)
+		}
 		xact := &Transaction{
 			Line:          transaction.Line,
-			Account:       c.Map.Accounts[transaction.Account],
+			Account:       acct,
 			ClearedStatus: transaction.ClearedStatus,
 			Date:          transaction.Date,
 			IsLinked:      transaction.IsLinked,
