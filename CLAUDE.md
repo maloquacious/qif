@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-`github.com/maloquacious/qif` parses QIF (Quicken Interchange Format) exports and converts them to CSV, JSON and [Ledger](https://ledger-cli.org) text. `cmd/qifxlat` is the only binary. It does not write QIF.
+`github.com/maloquacious/qif` parses QIF (Quicken Interchange Format) exports and converts them to CSV, JSON and [Ledger](https://ledger-cli.org) text. `cmd/qifxlat` is the only binary. It does not write QIF. The root package `qif` contains only `Version()` (`version.go`).
 
 ## Commands
 
@@ -18,11 +18,12 @@ go run ./cmd/qifxlat -input file.qif -output-json-filename out.json \
     -output-csv-filename out.csv -output-ledger-filename out.ledger
 ```
 
-`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input.
+`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input. `-version` prints the version and exits.
 
 ## Constraints
 
-- `go.mod` declares `go 1.15`, so don't use newer language features or packages: no generics, `any`, `min`/`max`, `slices`/`maps`, `log/slog`. Raising the version is planned (#21, #31); do it in its own change, not as a side effect.
+- `go.mod` declares `go 1.21.6`, so don't use features from later Go releases (e.g. range-over-int or iterators from 1.22/1.23, `slog.DiscardHandler` from 1.24). Raise the version only in a change of its own.
+- **Every change to code or docs bumps the version in `version.go`**, in the same commit or PR. Minor for features, behavior changes or exported-API changes (reset patch to 0); patch for fixes, docs, refactors and tests. Major stays 0. See README "Versioning".
 - Every `.go` file starts with the MIT license header block. Copy it from an existing file.
 - Tests use only the standard library.
 

@@ -27,6 +27,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/maloquacious/qif"
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/scanner"
 	cdata "github.com/maloquacious/qif/writer/csv"
@@ -42,6 +43,11 @@ func main() {
 	if err != nil {
 		fmt.Printf("%+v\n", err)
 		os.Exit(2)
+	}
+
+	if cfg.Show.Version {
+		fmt.Println(qif.Version().Short())
+		return
 	}
 
 	if err = run(cfg); err != nil {
