@@ -45,7 +45,8 @@ func ReadSection(sc scanner.Scanner, account, accountType string) (*Section, sca
 	case "Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L", "Memorized", "Prices":
 		literal = "!Type:" + accountType
 	default:
-		panic(fmt.Sprintf("assert(account.type != %q)", accountType))
+		// unknown (or empty) account type, so this can't be a transaction section
+		return nil, saved, nil
 	}
 	lit, bb := sc.Literal(literal)
 	if lit == nil {
