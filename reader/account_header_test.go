@@ -85,3 +85,45 @@ func TestReadAccountListThenHeaders(t *testing.T) {
 		}
 	}
 }
+
+// Quicken writes the transactions of investment-style accounts under the
+// !Type:Invst header. The transactions keep the account's own type (#12).
+func TestReadInvestmentAccountHeaders(t *testing.T) {
+	for _, typ := range []string{"Invst", "Port", "401(k)/403(b)"} {
+		t.Run(typ, func(t *testing.T) {
+			input := "!Account\nNBroker\nT" + typ + "\n^\n" +
+				"!Type:Invst\nD1/ 2'16\nNBuy\nYACME\nI10.00\nQ5\nT50.00\n^\n" +
+				"D1/ 3'16\nNSell\nYACME\nI11.00\nQ5\nT55.00\n^\n"
+			r := read(t, input)
+			if len(r.Transactions) != 2 {
+				t.Fatalf("transactions: want 2, got %d", len(r.Transactions))
+			}
+			for i, xact := range r.Transactions {
+				if xact.Account != "Broker" || xact.Type != typ {
+					t.Errorf("transaction %d: want account %q type %q, got %q %q", i, "Broker", typ, xact.Account, xact.Type)
+				}
+			}
+		})
+	}
+}
+
+// An account list with a Port account, then its header and transactions.
+func TestReadAccountListThenPortHeader(t *testing.T) {
+	input := "!Option:AutoSwitch\n" +
+		"!Account\nNChk\nTBank\n^\nNBroker\nTPort\n^\n" +
+		"!Clear:AutoSwitch\n" +
+		"!Account\nNBroker\nTPort\n^\n" +
+		"!Type:Invst\nD1/ 2'16\nNBuy\nYACME\nI10.00\nQ5\nT50.00\n^\n" +
+		"!Account\nNChk\nTBank\n^\n" +
+		"!Type:Bank\nD1/ 3'16\nT10.00\n^\n"
+	r := read(t, input)
+	want := []struct{ account, typ string }{{"Broker", "Port"}, {"Chk", "Bank"}}
+	if len(r.Transactions) != len(want) {
+		t.Fatalf("transactions: want %d, got %d", len(want), len(r.Transactions))
+	}
+	for i, w := range want {
+		if xact := r.Transactions[i]; xact.Account != w.account || xact.Type != w.typ {
+			t.Errorf("transaction %d: want account %q type %q, got %q %q", i, w.account, w.typ, xact.Account, xact.Type)
+		}
+	}
+}

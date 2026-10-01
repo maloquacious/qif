@@ -97,12 +97,14 @@ func Translate(r *reader.Reader) (*CSV, error) {
 				typ = "ASS"
 			case "Oth L":
 				typ = "LBT"
+			case "Invst":
+				typ = "INV"
 			case "Port":
 				typ = "BRK"
 			case "401(k)/403(b)":
 				typ = "RET"
 			default:
-				panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+				return nil, fmt.Errorf("%d: account %q: unknown account type %q", account.Line, account.Name, account.Type)
 			}
 			a := &Account{
 				Line:                 account.Line,

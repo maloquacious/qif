@@ -96,12 +96,14 @@ func Translate(r *reader.Reader) (*JSON, error) {
 				typ = "asset"
 			case "Oth L":
 				typ = "liability"
+			case "Invst":
+				typ = "investment"
 			case "Port":
 				typ = "brokerage"
 			case "401(k)/403(b)":
 				typ = "retirement"
 			default:
-				panic(fmt.Sprintf("assert(account.type != %q)", account.Type))
+				return nil, fmt.Errorf("%d: account %q: unknown account type %q", account.Line, account.Name, account.Type)
 			}
 			j.Accounts = append(j.Accounts, Account{
 				Type:                 typ,

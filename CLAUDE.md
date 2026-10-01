@@ -57,9 +57,10 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 `reader.Read` repeatedly tries each section reader in a fixed order: AutoSwitch markers, accounts, categories, securities, tags, active-account transactions, Memorized, Prices. If none match, it returns a `line:col: …` error. Errors are only returned, never collected; the first one wins.
 
 **Active account:** transaction records don't name their own account. `Read` keeps `r.active.{account,accountType}` and stamps them onto each transaction, using these rules:
-- A one-record `!Account` section directly followed by `!Type:Bank|Cash|CCard|Invst|Oth A|Oth L` is the active-account header. If no account list has been seen yet, it also becomes `r.Accounts`.
+- A one-record `!Account` section directly followed by an account transaction header (`!Type:Bank|Cash|CCard|Invst|Oth A|Oth L`) is the active-account header. If no account list has been seen yet, it also becomes `r.Accounts`.
 - Otherwise the first `!Account` section is the account list (normally wrapped in `!Option:AutoSwitch` … `!Clear:AutoSwitch`).
-- A transaction section is only recognized when its header matches the active account's type. Before any account is active it's an error.
+- A transaction section is only recognized when its header matches the active account's type, via `account.TransactionType` (`Port` and `401(k)/403(b)` accounts use `!Type:Invst`; records keep the account's own type). Before any account is active it's an error.
+- The set of known account types and their transaction headers lives only in `reader/account` (`TransactionType`, `TransactionTypes`); the reader derives its header checks from it.
 
 `Reader.Accounts`, `Categories`, `Securities` and `Tags` are **pointers that stay nil** when the file lacks that section. Check for nil before using them.
 
@@ -73,7 +74,7 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 ### writers
 
 Each writer package has `Translate(*reader.Reader) (*T, error)` and `(*T).Write(io.Writer) error`. Each one prints its own progress counts to stdout (moving to slog is #22).
-- `csv` and `json` map QIF account types to their own codes and **panic on unknown types** (#12).
+- `csv` and `json` map QIF account types to their own codes and return an error on unknown types.
 - `ledger` flips amount signs except for single-line opening balances (`doFlipSign`), and adds a balancing posting to the source account.
 
 ### stdlib

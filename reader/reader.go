@@ -163,8 +163,8 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 			continue
 		}
 		if r.active.accountType == "" {
-			for _, accountType := range []string{"Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L"} {
-				header := "!Type:" + accountType
+			for _, transactionType := range account.TransactionTypes() {
+				header := "!Type:" + transactionType
 				if literal, _ := sc.Literal(header); literal != nil {
 					return nil, fmt.Errorf("%d:%d: transaction section %q found before any !Account header", sc.Line, sc.Col, header)
 				}
@@ -178,8 +178,8 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 // isTransactionHeader returns true if the scanner is positioned at the
 // header of an account transaction section. It does not consume any input.
 func isTransactionHeader(sc scanner.Scanner) bool {
-	for _, accountType := range []string{"Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L"} {
-		if literal, _ := sc.Literal("!Type:" + accountType); literal != nil {
+	for _, transactionType := range account.TransactionTypes() {
+		if literal, _ := sc.Literal("!Type:" + transactionType); literal != nil {
 			return true
 		}
 	}
