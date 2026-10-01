@@ -69,7 +69,6 @@ func ReadSection(sc scanner.Scanner, account, accountType string) (*Section, sca
 	// read the end of section marker
 	eos, bb := sc.EndOfSection()
 	if eos == nil {
-		fmt.Printf("error here %q\n", string(sc.Buffer[:20]))
 		return nil, saved, fmt.Errorf("%d: %s: %d:%d: unexpected input", section.Line, sname, sc.Line, sc.Col)
 	}
 	sc = bb
