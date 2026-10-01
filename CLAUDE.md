@@ -1,0 +1,93 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## What this is
+
+`github.com/maloquacious/qif` parses QIF (Quicken Interchange Format) exports and converts them to CSV, JSON and [Ledger](https://ledger-cli.org) text. `cmd/qifxlat` is the only binary. It does not write QIF.
+
+## Commands
+
+```sh
+go build ./...
+go vet ./...
+gofmt -l .                                  # must print nothing
+go test ./...
+go test -run TestReadSingleAccountHeader ./reader/   # a single test
+go run ./cmd/qifxlat -input file.qif -output-json-filename out.json \
+    -output-csv-filename out.csv -output-ledger-filename out.ledger
+```
+
+`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input.
+
+## Constraints
+
+- `go.mod` declares `go 1.15`, so don't use newer language features or packages: no generics, `any`, `min`/`max`, `slices`/`maps`, `log/slog`. Raising the version is planned (#21, #31); do it in its own change, not as a side effect.
+- Every `.go` file starts with the MIT license header block. Copy it from an existing file.
+- Tests use only the standard library.
+
+## Architecture
+
+Data flows one way:
+
+```
+[]byte → scanner.Scanner → reader.Read → *reader.Reader → normalizer.Transactions → writer/{csv,json,ledger}.Translate → .Write(io.Writer)
+```
+
+### scanner: an immutable cursor
+
+`scanner.Scanner` is a **value type** holding the remaining buffer plus line/col. Each method (`Field`, `Date`, `Literal`, `EndOfRecord`, `EndOfSection`) returns `(lexeme, newScanner)`.
+- A nil lexeme means "no match", and the returned scanner is unchanged.
+- Backtracking is just keeping the old value (`saved := sc`).
+- `New` strips every `\r` and rejects invalid UTF-8.
+- `Date` validates through `stdlib.Date` and returns `yyyy/mm/dd`.
+
+### reader: hand-written recursive descent
+
+Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transaction`) has the same two functions:
+- `ReadSection` matches its `!Type:` / `!Account` header with `Literal`, calls `ReadRecord` until it returns nil, then requires `EndOfSection` (`!` or EOF).
+- `ReadRecord` loops over the field codes:
+  - Each single-occurrence field is guarded by `if x == nil`, so a repeated field ends the loop. Then `^` is required, otherwise it's a "missing record terminator" error.
+  - Repeatable fields (address `A`, splits `S`/`E`/`$`, budget `B`) append instead.
+  - Field order matters when codes share a prefix: `L[` (transfer) must be tried before `L` (category).
+
+  To support a new field code, add a branch to that loop.
+
+`reader.Read` repeatedly tries each section reader in a fixed order: AutoSwitch markers, accounts, categories, securities, tags, active-account transactions, Memorized, Prices. If none match, it returns a `line:col: …` error. Errors are only returned, never collected; the first one wins.
+
+**Active account:** transaction records don't name their own account. `Read` keeps `r.active.{account,accountType}` and stamps them onto each transaction, using these rules:
+- A one-record `!Account` section directly followed by `!Type:Bank|Cash|CCard|Invst|Oth A|Oth L` is the active-account header. If no account list has been seen yet, it also becomes `r.Accounts`.
+- Otherwise the first `!Account` section is the account list (normally wrapped in `!Option:AutoSwitch` … `!Clear:AutoSwitch`).
+- A transaction section is only recognized when its header matches the active account's type. Before any account is active it's an error.
+
+`Reader.Accounts`, `Categories`, `Securities` and `Tags` are **pointers that stay nil** when the file lacks that section. Check for nil before using them.
+
+### normalizer
+
+`normalizer.Transactions` flattens `transaction.Record`s for the writers:
+- Every transaction gets at least one split; a transaction with no splits becomes one split from `T`/`L`.
+- It sets `IsZero` (no non-zero amount).
+- It sets `IsLinked` (the receiving half of an `Oth L` transfer, which the CSV writer skips).
+
+### writers
+
+Each writer package has `Translate(*reader.Reader) (*T, error)` and `(*T).Write(io.Writer) error`. Each one prints its own progress counts to stdout (moving to slog is #22).
+- `csv` and `json` map QIF account types to their own codes and **panic on unknown types** (#12).
+- `ledger` flips amount signs except for single-line opening balances (`doFlipSign`), and adds a balancing posting to the source account.
+
+### stdlib
+
+`stdlib` holds small shared helpers: `Date` (QIF `m/d'yy` → `yyyy/mm/dd`, years assumed to be 2000–2099, invalid dates → `****/**/**`) and `FlipSign`.
+
+## Data conventions
+
+- Amounts are kept as the original **strings** (they may contain `,`). Nothing parses them to numbers.
+- Dates are `yyyy/mm/dd` strings, so comparing them as strings sorts them chronologically.
+- `Line`/`Col` fields record where each item appears in the source file, for error messages and output comments.
+
+## Workflow
+
+- Bugs and planned work are tracked as GitHub issues; check `gh issue list` before changing anything nearby.
+- Work on an issue goes on its own branch (`fix/<n>-<slug>`). The PR body includes `Fixes #<n>`, and PRs are squash-merged.
+- Changes not tied to an issue (repository upkeep, agent docs) are committed directly to `main` and pushed. Don't open a branch or PR for them.
+- Add a regression test with each fix.
