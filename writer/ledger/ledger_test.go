@@ -124,3 +124,55 @@ func TestTranslateInvestmentOpeningBalance(t *testing.T) {
 		})
 	}
 }
+
+// TestEntryWriteAccountNameConsistent verifies that a posting line and the
+// balancing posting render the same QIF account name as the same Ledger
+// account, without Go-style quoting.
+func TestEntryWriteAccountNameConsistent(t *testing.T) {
+	e := &Entry{Line: 1, Date: "2026/01/01", Payee: "Transfer", Account: "My  Savings",
+		Lines: Lines{{Line: 2, Category: "My  Savings", Amount: "10.00"}}}
+
+	var buf bytes.Buffer
+	if err := e.Write(&buf); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	out := buf.String()
+
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("got %d lines, want 3:\n%s", len(lines), out)
+	}
+	posting := strings.Fields(lines[1])
+	balance := strings.Fields(lines[2])
+	if len(posting) == 0 || posting[0] != "My__Savings" {
+		t.Errorf("posting account: got %q, want %q", lines[1], "My__Savings")
+	}
+	if len(balance) != 1 || balance[0] != "My__Savings" {
+		t.Errorf("balancing account: got %q, want %q", lines[2], "My__Savings")
+	}
+	if strings.Contains(out, `"`) {
+		t.Errorf("output contains a quote:\n%s", out)
+	}
+}
+
+// TestLedgerName verifies the QIF to Ledger account name mapping.
+func TestLedgerName(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+	}{
+		{"", ""},
+		{"Groceries", "Groceries"},
+		{"Auto:Fuel", "Auto:Fuel"},
+		{"My Savings", "My Savings"},
+		{"My  Savings", "My__Savings"},
+		{"My  Joint Savings", "My__Joint_Savings"},
+		{"a   b", "a___b"},
+		{"checking", "checking"},
+		{"check acct", "check_acct"},
+		{"Checking Acct", "Checking Acct"},
+	} {
+		if got := ledgerName(tc.name); got != tc.want {
+			t.Errorf("ledgerName(%q): got %q, want %q", tc.name, got, tc.want)
+		}
+	}
+}

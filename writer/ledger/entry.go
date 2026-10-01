@@ -28,7 +28,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"strings"
 )
 
 type Entry struct {
@@ -91,11 +90,11 @@ func (e *Entry) Write(w io.Writer) error {
 	}
 
 	// add a bucket to balance
-	bucket := e.Account
+	var bucket string
 	if e.Payee == "Opening Balance" && len(e.Lines) == 1 {
 		bucket = "Equity:Opening Balances"
-	} else if strings.Index(bucket, "  ") != -1 {
-		bucket = fmt.Sprintf("%q", bucket)
+	} else {
+		bucket = ledgerName(e.Account)
 	}
 	_, err = fmt.Fprintf(w, "    %s\n", bucket)
 	if err != nil {

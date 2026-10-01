@@ -53,10 +53,16 @@ func (l Lines) Swap(i, j int) {
 }
 
 func (l *Line) Write(w io.Writer) error {
-	category := l.Category
-	if strings.Index(category, "  ") != -1 || strings.HasPrefix(category, "check") {
-		category = strings.ReplaceAll(category, " ", "_")
-	}
-	_, err := fmt.Fprintf(w, "    %-49s  %15s ;; %6d %s\n", category, "$"+l.Amount, l.Line, l.Source)
+	_, err := fmt.Fprintf(w, "    %-49s  %15s ;; %6d %s\n", ledgerName(l.Category), "$"+l.Amount, l.Line, l.Source)
 	return err
+}
+
+// ledgerName returns the Ledger account name for a QIF account or category
+// name. When the name contains a double space or starts with "check", every
+// space is replaced with "_"; otherwise the name is returned unchanged.
+func ledgerName(name string) string {
+	if strings.Index(name, "  ") != -1 || strings.HasPrefix(name, "check") {
+		return strings.ReplaceAll(name, " ", "_")
+	}
+	return name
 }
