@@ -72,7 +72,15 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 			return nil, err
 		} else if section != nil {
 			if len(section.Records) != 0 {
-				if r.Accounts == nil {
+				if len(section.Records) == 1 && isTransactionHeader(bb) {
+					// a single account immediately followed by its transactions
+					// is the header for the active account.
+					r.active.account = section.Records[0].Name
+					r.active.accountType = section.Records[0].Type
+					if r.Accounts == nil {
+						r.Accounts = section
+					}
+				} else if r.Accounts == nil {
 					r.Accounts = section
 				} else if len(section.Records) == 1 {
 					r.active.account = section.Records[0].Name
@@ -165,4 +173,15 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 		return nil, fmt.Errorf("%d:%d: unexpected input", sc.Line, sc.Col)
 	}
 	return &r, nil
+}
+
+// isTransactionHeader returns true if the scanner is positioned at the
+// header of an account transaction section. It does not consume any input.
+func isTransactionHeader(sc scanner.Scanner) bool {
+	for _, accountType := range []string{"Bank", "Cash", "CCard", "Invst", "Oth A", "Oth L"} {
+		if literal, _ := sc.Literal("!Type:" + accountType); literal != nil {
+			return true
+		}
+	}
+	return false
 }
