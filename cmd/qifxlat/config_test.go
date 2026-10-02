@@ -70,3 +70,122 @@ func TestNewLoggerInvalid(t *testing.T) {
 		}
 	}
 }
+
+// env returns a getenv function that looks up names in m.
+func env(m map[string]string) func(string) (string, bool) {
+	return func(name string) (string, bool) {
+		v, ok := m[name]
+		return v, ok
+	}
+}
+
+// TestEnvName is a regression test for issue #34: a flag's environment
+// variable is QIFXLAT_ plus the flag name uppercased, with "-" as "_".
+func TestEnvName(t *testing.T) {
+	for flagName, want := range map[string]string{
+		"input":                  "QIFXLAT_INPUT",
+		"output-csv-filename":    "QIFXLAT_OUTPUT_CSV_FILENAME",
+		"output-json-filename":   "QIFXLAT_OUTPUT_JSON_FILENAME",
+		"output-ledger-filename": "QIFXLAT_OUTPUT_LEDGER_FILENAME",
+		"log-level":              "QIFXLAT_LOG_LEVEL",
+		"log-format":             "QIFXLAT_LOG_FORMAT",
+		"version":                "QIFXLAT_VERSION",
+	} {
+		if got := envName(flagName); got != want {
+			t.Errorf("envName(%q): want %q, got %q", flagName, want, got)
+		}
+	}
+}
+
+// TestParseConfigEnv is a regression test for issue #34: every setting can
+// come from the environment.
+func TestParseConfigEnv(t *testing.T) {
+	cfg, err := parseConfig(nil, env(map[string]string{
+		"QIFXLAT_INPUT":                  "f.qif",
+		"QIFXLAT_OUTPUT_CSV_FILENAME":    "out.csv",
+		"QIFXLAT_OUTPUT_JSON_FILENAME":   "out.json",
+		"QIFXLAT_OUTPUT_LEDGER_FILENAME": "out.ledger",
+		"QIFXLAT_LOG_LEVEL":              "debug",
+		"QIFXLAT_LOG_FORMAT":             "json",
+	}))
+	if err != nil {
+		t.Fatalf("parseConfig: unexpected error: %v", err)
+	}
+	for _, tc := range []struct{ name, got, want string }{
+		{"input", cfg.Input.QIF, "f.qif"},
+		{"csv", cfg.Output.CSV, "out.csv"},
+		{"json", cfg.Output.JSON, "out.json"},
+		{"ledger", cfg.Output.Ledger, "out.ledger"},
+		{"log level", cfg.Log.Level, "debug"},
+		{"log format", cfg.Log.Format, "json"},
+	} {
+		if tc.got != tc.want {
+			t.Errorf("%s: want %q, got %q", tc.name, tc.want, tc.got)
+		}
+	}
+
+	// -version from the environment skips the -input check
+	cfg, err = parseConfig(nil, env(map[string]string{"QIFXLAT_VERSION": "true"}))
+	if err != nil {
+		t.Fatalf("parseConfig: QIFXLAT_VERSION: unexpected error: %v", err)
+	}
+	if !cfg.Show.Version {
+		t.Errorf("QIFXLAT_VERSION=true: want Show.Version true")
+	}
+}
+
+// TestParseConfigPrecedence is a regression test for issue #34: a flag on
+// the command line overrides its environment variable, which overrides the
+// default.
+func TestParseConfigPrecedence(t *testing.T) {
+	cfg, err := parseConfig(
+		[]string{"-input", "flag.qif", "-log-level", "warn"},
+		env(map[string]string{
+			"QIFXLAT_INPUT":                "env.qif",
+			"QIFXLAT_OUTPUT_JSON_FILENAME": "env.json",
+		}))
+	if err != nil {
+		t.Fatalf("parseConfig: unexpected error: %v", err)
+	}
+	if cfg.Input.QIF != "flag.qif" {
+		t.Errorf("input: want flag to win, got %q", cfg.Input.QIF)
+	}
+	if cfg.Output.JSON != "env.json" {
+		t.Errorf("json: want env value, got %q", cfg.Output.JSON)
+	}
+	if cfg.Log.Level != "warn" {
+		t.Errorf("log level: want flag value, got %q", cfg.Log.Level)
+	}
+	if cfg.Log.Format != "text" {
+		t.Errorf("log format: want default, got %q", cfg.Log.Format)
+	}
+
+	// -version=false on the command line overrides QIFXLAT_VERSION
+	_, err = parseConfig([]string{"-version=false"}, env(map[string]string{"QIFXLAT_VERSION": "1"}))
+	if err == nil {
+		t.Errorf("-version=false: want missing input error, got nil")
+	}
+}
+
+// TestParseConfigInvalidEnv is a regression test for issue #34: an invalid
+// environment value is an error that names the variable.
+func TestParseConfigInvalidEnv(t *testing.T) {
+	_, err := parseConfig([]string{"-input", "f.qif"}, env(map[string]string{"QIFXLAT_VERSION": "maybe"}))
+	if err == nil {
+		t.Fatalf("QIFXLAT_VERSION=maybe: want error, got nil")
+	}
+	if !strings.Contains(err.Error(), "QIFXLAT_VERSION") {
+		t.Errorf("error should name the variable, got %q", err)
+	}
+}
+
+// TestParseConfigMissingInput checks that -input is required unless
+// -version is set.
+func TestParseConfigMissingInput(t *testing.T) {
+	if _, err := parseConfig(nil, env(nil)); err == nil {
+		t.Errorf("no input: want error, got nil")
+	}
+	if _, err := parseConfig([]string{"-version"}, env(nil)); err != nil {
+		t.Errorf("-version: unexpected error: %v", err)
+	}
+}

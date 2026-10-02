@@ -18,7 +18,7 @@ go run ./cmd/qifxlat -input file.qif -output-json-filename out.json \
     -output-csv-filename out.csv -output-ledger-filename out.ledger
 ```
 
-`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input. `-version` prints the version to stdout and exits; all diagnostics go to stderr through `log/slog`, set by `-log-level` (`debug|info|warn|error`, default `info`) and `-log-format` (`text|json`, default `text`). Stage durations are logged at `debug`.
+Every `qifxlat` flag can also be set by an environment variable: `QIFXLAT_` plus the flag name uppercased, with `-` replaced by `_` (e.g. `-output-csv-filename` ↔ `QIFXLAT_OUTPUT_CSV_FILENAME`). A flag on the command line overrides its variable; `-h` lists both. This uses only the standard `flag` package (`cmd/qifxlat/config.go`), so new flags get a variable automatically. With no output flags, it only validates the input. `-version` prints the version to stdout and exits; all diagnostics go to stderr through `log/slog`, set by `-log-level` (`debug|info|warn|error`, default `info`) and `-log-format` (`text|json`, default `text`). Stage durations are logged at `debug`.
 
 ## Constraints
 
