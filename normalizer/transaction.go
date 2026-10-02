@@ -24,7 +24,11 @@
 
 package normalizer
 
-import "github.com/maloquacious/qif/reader/transaction"
+import (
+	"strings"
+
+	"github.com/maloquacious/qif/reader/transaction"
+)
 
 type Transaction struct {
 	Line          int
@@ -112,20 +116,78 @@ func Transactions(transactions []*transaction.Record) []*Transaction {
 			}
 		}
 
-		// flag the receiving half of linked transactions: on the Oth L side, a split
-		// that transfers to another account is the copy of a split recorded in that
-		// account. A transfer to the account itself (an opening balance) is not a link.
-		if xact.Type == "Oth L" {
-			xact.IsLinked = true
-			for _, split := range xact.Split {
-				split.IsLinked = split.Account != "" && split.Account != xact.Account
-				if !split.IsLinked {
-					xact.IsLinked = false
-				}
-			}
-		}
-
 		normalized = append(normalized, &xact)
 	}
+	linkTransfers(normalized)
 	return normalized
+}
+
+// transferKey identifies one half of a transfer: the split recorded in
+// account From that moves Amount to account To on Date.
+type transferKey struct {
+	Date, From, To, Amount string
+}
+
+// linkTransfers flags the duplicate half of each transfer between two
+// accounts in the export. Quicken records a transfer twice, once in each
+// account, with opposite amounts. Two transfer splits are halves of the
+// same transfer when they have the same date, each names the other's
+// account, and their amounts are negatives of each other. Halves are
+// paired in input order.
+//
+// Of each pair, the half recorded in an Oth L account is the copy;
+// otherwise it's the half that appears later in the input. A transfer to
+// the account itself (an opening balance) and a transfer with no matching
+// half (for example, to an account missing from the export) are never
+// linked.
+//
+// A transaction is linked when every one of its splits is.
+func linkTransfers(transactions []*Transaction) {
+	type half struct {
+		xact  *Transaction
+		split *Split
+	}
+	unmatched := make(map[transferKey][]half)
+	for _, xact := range transactions {
+		for _, split := range xact.Split {
+			if split.IsZero || split.Account == "" || split.Account == xact.Account {
+				continue
+			}
+			amount := canonicalAmount(split.Amount)
+			mirror := transferKey{Date: xact.Date, From: split.Account, To: xact.Account, Amount: negate(amount)}
+			if halves := unmatched[mirror]; len(halves) != 0 {
+				first := halves[0]
+				unmatched[mirror] = halves[1:]
+				if first.xact.Type == "Oth L" && xact.Type != "Oth L" {
+					first.split.IsLinked = true
+				} else {
+					split.IsLinked = true
+				}
+				continue
+			}
+			key := transferKey{Date: xact.Date, From: xact.Account, To: split.Account, Amount: amount}
+			unmatched[key] = append(unmatched[key], half{xact: xact, split: split})
+		}
+	}
+	for _, xact := range transactions {
+		xact.IsLinked = len(xact.Split) != 0
+		for _, split := range xact.Split {
+			if !split.IsLinked {
+				xact.IsLinked = false
+			}
+		}
+	}
+}
+
+// canonicalAmount removes thousands separators and a leading plus sign.
+func canonicalAmount(amount string) string {
+	return strings.TrimPrefix(strings.ReplaceAll(amount, ",", ""), "+")
+}
+
+// negate returns a canonical amount with the opposite sign.
+func negate(amount string) string {
+	if strings.HasPrefix(amount, "-") {
+		return amount[1:]
+	}
+	return "-" + amount
 }

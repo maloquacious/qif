@@ -44,6 +44,7 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 
 		e := &Entry{
 			Line:        t.Line,
+			IsLinked:    t.IsLinked,
 			IsZero:      true,
 			Account:     t.Account,
 			AccountType: t.Type,
@@ -55,8 +56,9 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 
 		for _, split := range t.Split {
 			line := &Line{
-				Line:   split.Line,
-				IsZero: split.IsZero,
+				Line:     split.Line,
+				IsLinked: split.IsLinked,
+				IsZero:   split.IsZero,
 			}
 
 			amount := split.Amount
@@ -83,7 +85,8 @@ func Translate(r *reader.Reader) (*LEDGER, error) {
 				}
 			}
 
-			if !line.IsZero {
+			// a linked line is written by the entry for the other half of the transfer
+			if !line.IsZero && !line.IsLinked {
 				e.IsZero = false
 			}
 

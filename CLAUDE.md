@@ -69,7 +69,8 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 `normalizer.Transactions` flattens `transaction.Record`s for the writers:
 - Every transaction gets at least one split; a transaction with no splits becomes one split from `T`/`L`.
 - It sets `IsZero` (no non-zero amount).
-- In an `Oth L` transaction, it sets `IsLinked` on each split that transfers to *another* account (the copy of a split recorded in that account); a transfer to the account itself (an opening balance) is not a link. `Transaction.IsLinked` is true only when every split is linked. The CSV writer skips linked splits.
+- Quicken records each transfer twice, once in each account. `linkTransfers` pairs the two halves (same date, each names the other's account, opposite amounts after removing `,` and `+`) in input order, and sets `IsLinked` on the duplicate half: the `Oth L` half if exactly one side is `Oth L`, otherwise the half found later. A transfer to the account itself (an opening balance) or with no matching half (e.g. to an account missing from the export) is never linked. `Transaction.IsLinked` is true only when every split is linked.
+- The CSV and ledger writers skip linked splits, and skip a transaction whose splits are all linked.
 
 ### writers
 

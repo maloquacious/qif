@@ -75,8 +75,9 @@ func (l *LEDGER) Write(w io.Writer) error {
 // skipped and written.
 func (l *LEDGER) write(w io.Writer) (skipped, written int, err error) {
 	for _, e := range l.Entries {
-		// don't write entries that are missing amounts
-		if e.IsZero {
+		// don't write entries that are missing amounts or that only
+		// duplicate transfers written by another entry
+		if e.IsZero || e.IsLinked {
 			skipped++
 			continue
 		}

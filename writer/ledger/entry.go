@@ -32,7 +32,8 @@ import (
 
 type Entry struct {
 	Line        int
-	IsZero      bool
+	IsLinked    bool // every line is the duplicate half of a transfer
+	IsZero      bool // no line that isn't linked has an amount
 	Account     string
 	AccountType string
 	Date        string
@@ -78,6 +79,10 @@ func (e *Entry) Write(w io.Writer) error {
 	//amount = "$" + amount
 
 	for _, l := range e.Lines {
+		// don't write the duplicate half of a transfer
+		if l.IsLinked {
+			continue
+		}
 		// don't write lines with no amount
 		//if l.IsZero {
 		//	continue

@@ -54,79 +54,140 @@ func TestTransactionsClass(t *testing.T) {
 	}
 }
 
-// TestTransactionsIsLinked is a regression test for issue #16: in an Oth L
-// transaction, only the splits that transfer to another account are linked,
-// and the transaction is linked only when every split is.
+// TestTransactionsIsLinked is a regression test for issues #16, #42 and #43.
+// The two halves of a transfer are matched by date, accounts and opposite
+// amounts; only the duplicate half is linked, and a transaction is linked
+// only when every split is.
 func TestTransactionsIsLinked(t *testing.T) {
+	// xfer returns a transaction without splits
+	xfer := func(line int, typ, account, date, amount, to string) *transaction.Record {
+		return &transaction.Record{Line: line, Type: typ, Account: account, Date: date, AmountTCode: amount, ToAccount: to}
+	}
 	for _, tc := range []struct {
-		name       string
-		record     *transaction.Record
-		wantXact   bool
-		wantSplits []bool
+		name    string
+		records []*transaction.Record
+		// want[i][j] is IsLinked of split j of transaction i
+		want     [][]bool
+		wantXact []bool
 	}{
 		{
-			name: "Oth L opening balance",
-			record: &transaction.Record{Line: 1, Type: "Oth L", Account: "Mortgage", Payee: "Opening Balance",
-				AmountTCode: "-1,000.00", ToAccount: "Mortgage"},
-			wantXact:   false,
-			wantSplits: []bool{false},
+			name:     "opening balance is a self-transfer",
+			records:  []*transaction.Record{xfer(1, "Oth L", "Mortgage", "2021/01/01", "-1,000.00", "Mortgage")},
+			want:     [][]bool{{false}},
+			wantXact: []bool{false},
 		},
 		{
-			name: "Oth L single transfer",
-			record: &transaction.Record{Line: 5, Type: "Oth L", Account: "Mortgage", Payee: "Payment",
-				AmountTCode: "100.00", ToAccount: "Checking"},
-			wantXact:   true,
-			wantSplits: []bool{true},
+			name: "bank to bank: later half is linked",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "-200.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/02", "200.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {true}},
+			wantXact: []bool{false, true},
 		},
 		{
-			name: "Oth L transfer on split 0",
-			record: &transaction.Record{Line: 9, Type: "Oth L", Account: "Mortgage", Payee: "Payment",
-				AmountTCode: "90.00", Split: []*transaction.Split{
-					{Line: 12, Account: "Checking", Amount: "100.00"},
-					{Line: 14, Category: "Loan Fee", Amount: "-10.00"},
+			name: "Oth L half is linked even when it comes first",
+			records: []*transaction.Record{
+				xfer(1, "Oth L", "Mortgage", "2021/01/02", "100.00", "Checking"),
+				xfer(5, "Bank", "Checking", "2021/01/02", "-100.00", "Mortgage"),
+			},
+			want:     [][]bool{{true}, {false}},
+			wantXact: []bool{true, false},
+		},
+		{
+			name:     "transfer without its other half is kept",
+			records:  []*transaction.Record{xfer(1, "Oth L", "Mortgage", "2021/01/02", "100.00", "Checking")},
+			want:     [][]bool{{false}},
+			wantXact: []bool{false},
+		},
+		{
+			name: "different dates do not match",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "-200.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/03", "200.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {false}},
+			wantXact: []bool{false, false},
+		},
+		{
+			name: "same-sign amounts do not match",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "-200.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/02", "-200.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {false}},
+			wantXact: []bool{false, false},
+		},
+		{
+			name: "amounts match ignoring commas and plus sign",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "-1,200.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/02", "+1200.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {true}},
+			wantXact: []bool{false, true},
+		},
+		{
+			name: "two identical transfers on one day pair up separately",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "-50.00", "Savings"),
+				xfer(3, "Bank", "Checking", "2021/01/02", "-50.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/02", "50.00", "Checking"),
+				xfer(7, "Bank", "Savings", "2021/01/02", "50.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {false}, {true}, {true}},
+			wantXact: []bool{false, false, true, true},
+		},
+		{
+			name: "zero-amount transfer is not linked",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Checking", "2021/01/02", "0.00", "Savings"),
+				xfer(5, "Bank", "Savings", "2021/01/02", "0.00", "Checking"),
+			},
+			want:     [][]bool{{false}, {false}},
+			wantXact: []bool{false, false},
+		},
+		{
+			name: "split transfer first: the other account's transaction is linked",
+			records: []*transaction.Record{
+				{Line: 1, Type: "Bank", Account: "Checking", Date: "2021/01/02", AmountTCode: "-70.00", Split: []*transaction.Split{
+					{Line: 3, Account: "Savings", Amount: "-50.00"},
+					{Line: 5, Category: "Food", Amount: "-20.00"},
 				}},
-			wantXact:   false,
-			wantSplits: []bool{true, false},
+				xfer(9, "Bank", "Savings", "2021/01/02", "50.00", "Checking"),
+			},
+			want:     [][]bool{{false, false}, {true}},
+			wantXact: []bool{false, true},
 		},
 		{
-			name: "Oth L transfer on split 1",
-			record: &transaction.Record{Line: 20, Type: "Oth L", Account: "Mortgage", Payee: "Payment",
-				AmountTCode: "90.00", Split: []*transaction.Split{
-					{Line: 23, Category: "Loan Fee", Amount: "-10.00"},
-					{Line: 25, Account: "Checking", Amount: "100.00"},
+			name: "split transfer second: only the transfer split is linked",
+			records: []*transaction.Record{
+				xfer(1, "Bank", "Savings", "2021/01/02", "50.00", "Checking"),
+				{Line: 5, Type: "Bank", Account: "Checking", Date: "2021/01/02", AmountTCode: "-70.00", Split: []*transaction.Split{
+					{Line: 7, Category: "Food", Amount: "-20.00"},
+					{Line: 9, Account: "Savings", Amount: "-50.00"},
 				}},
-			wantXact:   false,
-			wantSplits: []bool{false, true},
-		},
-		{
-			name: "Oth L category only",
-			record: &transaction.Record{Line: 30, Type: "Oth L", Account: "Mortgage", Payee: "Interest",
-				AmountTCode: "-5.00", Category: "Interest"},
-			wantXact:   false,
-			wantSplits: []bool{false},
-		},
-		{
-			name: "Bank transfer to Oth L",
-			record: &transaction.Record{Line: 35, Type: "Bank", Account: "Checking", Payee: "Payment",
-				AmountTCode: "-100.00", ToAccount: "Mortgage"},
-			wantXact:   false,
-			wantSplits: []bool{false},
+			},
+			want:     [][]bool{{false}, {false, true}},
+			wantXact: []bool{false, false},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := normalizer.Transactions([]*transaction.Record{tc.record})
-			if len(got) != 1 {
-				t.Fatalf("Transactions: want 1 transaction, got %d", len(got))
+			got := normalizer.Transactions(tc.records)
+			if len(got) != len(tc.want) {
+				t.Fatalf("Transactions: want %d transactions, got %d", len(tc.want), len(got))
 			}
-			if got[0].IsLinked != tc.wantXact {
-				t.Errorf("IsLinked: want %v, got %v", tc.wantXact, got[0].IsLinked)
-			}
-			if len(got[0].Split) != len(tc.wantSplits) {
-				t.Fatalf("want %d splits, got %d", len(tc.wantSplits), len(got[0].Split))
-			}
-			for i, want := range tc.wantSplits {
-				if got[0].Split[i].IsLinked != want {
-					t.Errorf("split %d: IsLinked: want %v, got %v", i, want, got[0].Split[i].IsLinked)
+			for i, xact := range got {
+				if xact.IsLinked != tc.wantXact[i] {
+					t.Errorf("transaction %d: IsLinked: want %v, got %v", i, tc.wantXact[i], xact.IsLinked)
+				}
+				if len(xact.Split) != len(tc.want[i]) {
+					t.Fatalf("transaction %d: want %d splits, got %d", i, len(tc.want[i]), len(xact.Split))
+				}
+				for j, want := range tc.want[i] {
+					if xact.Split[j].IsLinked != want {
+						t.Errorf("transaction %d split %d: IsLinked: want %v, got %v", i, j, want, xact.Split[j].IsLinked)
+					}
 				}
 			}
 		})

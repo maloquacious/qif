@@ -37,6 +37,7 @@ type Line struct {
 	Source   string
 	Category string
 	Amount   string
+	IsLinked bool // the duplicate half of a transfer; the other account's entry writes it
 	IsZero   bool
 }
 
