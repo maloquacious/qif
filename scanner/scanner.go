@@ -33,7 +33,12 @@ import (
 	"github.com/maloquacious/qif/stdlib"
 )
 
-// Scanner
+// Scanner is an immutable cursor over the input.
+//
+// Line and Col give the position of the start of Buffer. Both are 1-based:
+// the first character of every line is in column 1. Col counts runes, but
+// Date, Field and Literal advance it by the byte length of their flag, so
+// flags and literals must be ASCII.
 type Scanner struct {
 	Line   int
 	Col    int
@@ -42,7 +47,7 @@ type Scanner struct {
 
 // New returns a new scanner with a copy of the input.
 func New(input []byte) (Scanner, error) {
-	b, offset, line, col := make([]byte, 0, len(input)+1), 0, 1, 0
+	b, offset, line, col := make([]byte, 0, len(input)+1), 0, 1, 1
 	for offset < len(input) {
 		r, w := utf8.DecodeRune(input[offset:])
 		if r == utf8.RuneError {
@@ -50,15 +55,18 @@ func New(input []byte) (Scanner, error) {
 		} else if r == '\r' {
 			offset += w
 			continue
-		} else if r == '\n' {
-			line, col = line+1, 0
 		}
-		b, offset, col = append(b, input[offset:offset+w]...), offset+w, col+1
+		b, offset = append(b, input[offset:offset+w]...), offset+w
+		if r == '\n' {
+			line, col = line+1, 1
+		} else {
+			col++
+		}
 	}
 	if len(b) == 0 || b[len(b)-1] != '\n' {
 		b = append(b, '\n')
 	}
-	return Scanner{Buffer: b, Line: 1}, nil
+	return Scanner{Buffer: b, Line: 1, Col: 1}, nil
 }
 
 // Date will accept a date string which looks like

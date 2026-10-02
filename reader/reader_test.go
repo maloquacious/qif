@@ -56,8 +56,9 @@ func TestReadTransactionsWithoutAccount(t *testing.T) {
 	if !strings.Contains(err.Error(), `"!Type:Bank"`) || !strings.Contains(err.Error(), "before any !Account header") {
 		t.Errorf("Read: error %q does not mention the transaction header", err)
 	}
-	if !strings.HasPrefix(err.Error(), "1:") {
-		t.Errorf("Read: error %q does not start with the line number", err)
+	// Columns are 1-based on line 1 too (issue #47).
+	if !strings.HasPrefix(err.Error(), "1:1:") {
+		t.Errorf("Read: error %q does not start with the position 1:1:", err)
 	}
 }
 

@@ -56,25 +56,25 @@ func TestReadDuplicateSections(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		input string
-		want  string // prefix of the error; the column of line 1 is not checked
+		want  string // prefix of the error
 	}{
 		{
 			name: "accounts",
 			input: "!Account\nNChk\nTBank\n^\nNVisa\nTCCard\n^\n" +
 				"!Account\nNSav\nTBank\n^\nNCash\nTCash\n^\n",
-			want: "8:1: duplicate account list (first at 1:",
+			want: "8:1: duplicate account list (first at 1:1)",
 		},
 		{
 			name: "categories",
 			input: "!Type:Cat\nNFood\nE\n^\n" +
 				"!Type:Cat\nNRent\nE\n^\n",
-			want: "5:1: duplicate category list (first at 1:",
+			want: "5:1: duplicate category list (first at 1:1)",
 		},
 		{
 			name: "tags",
 			input: "!Type:Tag\nNHome\n^\n" +
 				"!Type:Tag\nNWork\n^\n",
-			want: "4:1: duplicate tag list (first at 1:",
+			want: "4:1: duplicate tag list (first at 1:1)",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
