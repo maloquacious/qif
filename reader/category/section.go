@@ -31,6 +31,8 @@ import (
 	"github.com/maloquacious/qif/scanner"
 )
 
+// Section holds the records of one section. Line and Col are where its
+// header appears.
 type Section struct {
 	Line    int
 	Col     int

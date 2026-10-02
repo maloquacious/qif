@@ -34,12 +34,15 @@ import (
 //
 //	digit digit? slash (space | digit) digit tic digit digit
 //
-// It is is formatted as mm/dd'yy. The month can be one or two digits
+// It is formatted as mm/dd'yy. The month can be one or two digits
 // (eg, January is `1` while October is `10`). The day must be two characters,
 // but the first character may be a space instead of a zero. For example,
 // `01` and ` 1` are both the first day of the month. The year must be two
 // digits, and we're assuming it is always in the 21st century (eg, `16` is
 // converted to 2016, not 1916).
+//
+// Date returns "****/**/**" if b isn't a QIF date or names a day that
+// doesn't exist, such as 2/30'21. Text after the year is ignored.
 func Date(b []byte) string {
 	atoi := func(b []byte) int {
 		return int(b[0] - '0')
@@ -126,7 +129,10 @@ func Date(b []byte) string {
 	return fmt.Sprintf("%4d/%02d/%02d", yyyy, mm, dd)
 }
 
-// FlipSign changes the sign of an amount
+// FlipSign returns the amount with the opposite sign: it removes a leading
+// "-", replaces a leading "+" with "-", or prepends "-". An empty amount and
+// "0.00" both return "0.00". The amount isn't parsed, so "-0.00" returns
+// "0.00" but "0" returns "-0".
 func FlipSign(amount string) string {
 	if amount == "" || amount == "0.00" {
 		return "0.00"

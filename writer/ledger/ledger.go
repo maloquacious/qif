@@ -31,6 +31,7 @@ import (
 	"slices"
 )
 
+// Ledger is the data for a Ledger journal: one entry per transaction.
 type Ledger struct {
 	Entries []*Entry
 	logger  *slog.Logger
@@ -46,6 +47,8 @@ func (l *Ledger) Sort() {
 	}
 }
 
+// Write writes the entries in order. It skips entries that are zero or
+// linked.
 func (l *Ledger) Write(w io.Writer) error {
 	skipped, written, err := l.write(w)
 	if err != nil {

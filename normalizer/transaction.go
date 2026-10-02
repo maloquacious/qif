@@ -34,6 +34,10 @@ import (
 	"github.com/maloquacious/qif/reader/transaction"
 )
 
+// Transaction is a transaction flattened for the writers. It always has
+// at least one split. IsZero is true when no split has a non-zero amount,
+// and IsLinked is true when every split is the duplicate half of a
+// transfer.
 type Transaction struct {
 	Line          int
 	Type          string
@@ -56,6 +60,9 @@ type Transaction struct {
 	Ticker        string
 }
 
+// Split is one line of a Transaction. Account is the transfer account, if
+// any. IsLinked is true when the split is the duplicate half of a transfer
+// recorded in full by the other account's transaction.
 type Split struct {
 	Line     int
 	Account  string
@@ -68,6 +75,11 @@ type Split struct {
 	Ticker   string
 }
 
+// Transactions normalizes the records, keeping their order. A record with
+// no splits becomes a transaction with one split made from its T amount,
+// L category or transfer account, and memo; the memo moves from the
+// transaction to that split. If the first split names no account, it
+// takes the record's transfer account. See linkTransfers for IsLinked.
 func Transactions(transactions []*transaction.Record) []*Transaction {
 	var normalized []*Transaction
 	for _, t := range transactions {

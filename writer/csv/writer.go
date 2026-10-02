@@ -40,12 +40,17 @@ import (
 	"github.com/maloquacious/qif/stdlib"
 )
 
+// CSV is the data for a CSV file. Transactions are sorted by date, then
+// account name, then input line.
 type CSV struct {
 	Accounts     []*Account
 	Transactions []*Transaction
 	logger       *slog.Logger
 }
 
+// Account is an account from the account list. Type is a three-letter
+// code: BNK, CCD, CSH, ASS (Oth A), LBT (Oth L), INV, BRK (Port) or RET
+// (401(k)/403(b)).
 type Account struct {
 	Line                 int
 	Type                 string
@@ -56,6 +61,7 @@ type Account struct {
 	StatementBalanceDate string
 }
 
+// Transaction is a transaction in an account.
 type Transaction struct {
 	Line          int
 	Type          string
@@ -70,6 +76,7 @@ type Transaction struct {
 	Split         []Split
 }
 
+// Split is one line of a transaction.
 type Split struct {
 	Line     int
 	Account  string
@@ -81,7 +88,8 @@ type Split struct {
 }
 
 // Translate converts the reader's data. Write logs to logger; a nil logger
-// discards the log.
+// discards the log. It returns an error for an account of unknown type and
+// for the errors from normalizer.ByAccount.
 func Translate(r *reader.Reader, logger *slog.Logger) (*CSV, error) {
 	var c CSV
 	c.logger = logger
@@ -164,6 +172,10 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*CSV, error) {
 	return &c, nil
 }
 
+// Write writes a header row, then one row per split. It skips zero
+// transactions and splits, and linked transactions and splits. A single
+// split "Opening Balance" in an ASS or LBT account has its sign flipped,
+// and FLIPPED is true for it.
 func (c *CSV) Write(w io.Writer) error {
 	var skipped, written int
 

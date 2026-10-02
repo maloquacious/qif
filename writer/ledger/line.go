@@ -32,8 +32,11 @@ import (
 	"strings"
 )
 
+// Lines are the postings of an entry.
 type Lines []*Line
 
+// Line is a posting. Category is the Ledger account name, and Source says
+// which split field it came from: account, category, ticker, memo or none.
 type Line struct {
 	Line     int
 	Source   string
@@ -50,6 +53,7 @@ func (l Lines) Sort() {
 	})
 }
 
+// Write writes the posting, with its line number and source as a comment.
 func (l *Line) Write(w io.Writer) error {
 	_, err := fmt.Fprintf(w, "    %-49s  %15s ;; %6d %s\n", ledgerName(l.Category), "$"+l.Amount, l.Line, l.Source)
 	return err

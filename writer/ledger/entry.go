@@ -29,6 +29,7 @@ import (
 	"io"
 )
 
+// Entry is a Ledger transaction made from one QIF transaction.
 type Entry struct {
 	Line        int
 	IsLinked    bool // every line is the duplicate half of a transfer
@@ -43,10 +44,16 @@ type Entry struct {
 	Lines       Lines
 }
 
+// Sort sorts the entry's lines by their line number.
 func (e *Entry) Sort() {
 	e.Lines.Sort()
 }
 
+// Write writes the entry: a header line with the date, cleared status,
+// reference number and payee, the memo as a "; " comment, a posting for
+// each line that isn't linked, and a final posting with no amount to
+// balance it. That posting is "Equity:Opening Balances" for a single-line
+// "Opening Balance", and the entry's own account otherwise.
 func (e *Entry) Write(w io.Writer) error {
 	payee := e.Payee
 	if payee == "" {

@@ -34,6 +34,7 @@ import (
 	"strings"
 )
 
+// Config holds the settings from the flags and environment variables.
 type Config struct {
 	Input struct {
 		QIF string

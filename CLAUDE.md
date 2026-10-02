@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `github.com/maloquacious/qif` parses QIF (Quicken Interchange Format) exports and converts them to CSV, JSON and [Ledger](https://ledger-cli.org) text. `cmd/qifxlat` is the only binary. It does not write QIF. The root package `qif` contains only `Version()` (`version.go`).
 
+`README.md` is the reference for the API, the QIF section headers and field codes, the output formats and the CLI. Keep it accurate when changing any of them.
+
 ## Commands
 
 ```sh
