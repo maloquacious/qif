@@ -25,13 +25,14 @@
 package ledger
 
 import (
-	"fmt"
 	"io"
+	"log/slog"
 	"sort"
 )
 
 type LEDGER struct {
 	Entries []*Entry
+	logger  *slog.Logger
 }
 
 func (l *LEDGER) Len() int {
@@ -65,10 +66,17 @@ func (l *LEDGER) Write(w io.Writer) error {
 		return err
 	}
 
-	fmt.Printf("ledger: skipped   %8d entries\n", skipped)
-	fmt.Printf("ledger: wrote     %8d entries\n", written)
+	l.log().Info("ledger: write complete", "written", written, "skipped", skipped)
 
 	return nil
+}
+
+// log returns the logger, or one that discards everything if there is none.
+func (l *LEDGER) log() *slog.Logger {
+	if l.logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return l.logger
 }
 
 // write writes the entries to w and returns the number of entries

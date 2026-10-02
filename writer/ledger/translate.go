@@ -27,13 +27,17 @@ package ledger
 
 import (
 	"fmt"
+	"log/slog"
+
 	"github.com/maloquacious/qif/normalizer"
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/stdlib"
 )
 
-func Translate(r *reader.Reader) (*LEDGER, error) {
-	l := &LEDGER{}
+// Translate converts the reader's transactions. Write logs to logger; a nil
+// logger discards the log.
+func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
+	l := &LEDGER{logger: logger}
 
 	for _, t := range normalizer.Transactions(r.Transactions) {
 		// most transactions in ledger require the opposite of the QIF sign

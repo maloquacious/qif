@@ -25,6 +25,11 @@
 package json_test
 
 import (
+	"bytes"
+	"io"
+	"log/slog"
+	"strings"
+
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
@@ -50,7 +55,7 @@ func TestTranslateNilSections(t *testing.T) {
 					t.Fatalf("Translate panicked: %v", p)
 				}
 			}()
-			if _, err := json.Translate(tc.r); err != nil {
+			if _, err := json.Translate(tc.r, nil); err != nil {
 				t.Fatalf("Translate returned error: %v", err)
 			}
 		})
@@ -70,7 +75,7 @@ func TestTranslateUnknownAccountType(t *testing.T) {
 				t.Fatalf("Translate panicked: %v", p)
 			}
 		}()
-		_, err = json.Translate(r)
+		_, err = json.Translate(r, nil)
 	}()
 	if err == nil {
 		t.Fatal("Translate: expected error, got nil")
@@ -94,12 +99,39 @@ func TestTranslateInvestmentAccount(t *testing.T) {
 				t.Fatalf("Translate panicked: %v", p)
 			}
 		}()
-		got, err = json.Translate(r)
+		got, err = json.Translate(r, nil)
 	}()
 	if err != nil {
 		t.Fatalf("Translate returned error: %v", err)
 	}
 	if want := "investment"; len(got.Accounts) != 1 || got.Accounts[0].Type != want {
 		t.Errorf("Translate: want one account of type %q, got %+v", want, got.Accounts)
+	}
+}
+
+// TestWriteLogs is a regression test for issue #22: Write logs its counts
+// to the logger given to Translate instead of printing them.
+func TestWriteLogs(t *testing.T) {
+	r := &reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{{Line: 2, Name: "Checking", Type: "Bank"}}},
+	}
+	var log bytes.Buffer
+	j, err := json.Translate(r, slog.New(slog.NewTextHandler(&log, nil)))
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	if err := j.Write(io.Discard); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if want := `level=INFO msg="json: write complete" accounts=1 categories=0 transactions=0`; !strings.Contains(log.String(), want) {
+		t.Errorf("log: want %q, got %q", want, log.String())
+	}
+	// the logger is not part of the JSON output
+	var out bytes.Buffer
+	if err := j.Write(&out); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if strings.Contains(out.String(), "logger") {
+		t.Errorf("output contains the logger: %s", out.String())
 	}
 }
