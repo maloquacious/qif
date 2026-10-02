@@ -18,7 +18,7 @@ go run ./cmd/qifxlat -input file.qif -output-json-filename out.json \
     -output-csv-filename out.csv -output-ledger-filename out.ledger
 ```
 
-`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input. `-version` prints the version and exits.
+`qifxlat` flags can also come from `QIFXLAT_*` environment variables (e.g. `QIFXLAT_INPUT`) or from a plain-text file given with `-config` (via `peterbourgon/ff`). With no output flags, it only validates the input. `-version` prints the version to stdout and exits; all diagnostics go to stderr through `log/slog`, set by `-log-level` (`debug|info|warn|error`, default `info`) and `-log-format` (`text|json`, default `text`). Stage durations are logged at `debug`.
 
 ## Constraints
 
@@ -74,7 +74,7 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 
 ### writers
 
-Each writer package has `Translate(*reader.Reader) (*T, error)` and `(*T).Write(io.Writer) error`. Each one prints its own progress counts to stdout (moving to slog is #22).
+Each writer package has `Translate(*reader.Reader, *slog.Logger) (*T, error)` and `(*T).Write(io.Writer) error`. `Write` logs its counts at `Info` to the logger given to `Translate`; a nil logger discards them (`slog.DiscardHandler`). Library packages never print and never use `slog.Default()`.
 - `csv` and `json` map QIF account types to their own codes and return an error on unknown types.
 - `ledger` flips amount signs except for single-line opening balances (`doFlipSign`), and adds a balancing posting to the source account.
 

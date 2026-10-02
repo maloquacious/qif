@@ -32,6 +32,8 @@ import (
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/reader/transaction"
 	"github.com/maloquacious/qif/writer/csv"
+	"io"
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -54,7 +56,7 @@ func TestTranslateNilSections(t *testing.T) {
 					t.Fatalf("Translate panicked: %v", p)
 				}
 			}()
-			if _, err := csv.Translate(tc.r); err != nil {
+			if _, err := csv.Translate(tc.r, nil); err != nil {
 				t.Fatalf("Translate returned error: %v", err)
 			}
 		})
@@ -74,7 +76,7 @@ func TestTranslateUnknownAccountType(t *testing.T) {
 				t.Fatalf("Translate panicked: %v", p)
 			}
 		}()
-		_, err = csv.Translate(r)
+		_, err = csv.Translate(r, nil)
 	}()
 	if err == nil {
 		t.Fatal("Translate: expected error, got nil")
@@ -98,7 +100,7 @@ func TestTranslateInvestmentAccount(t *testing.T) {
 				t.Fatalf("Translate panicked: %v", p)
 			}
 		}()
-		got, err = csv.Translate(r)
+		got, err = csv.Translate(r, nil)
 	}()
 	if err != nil {
 		t.Fatalf("Translate returned error: %v", err)
@@ -161,7 +163,7 @@ func TestWriteLinkedSplits(t *testing.T) {
 				AmountTCode: "200.00", ToAccount: "Checking"},
 		},
 	}
-	c, err := csv.Translate(r)
+	c, err := csv.Translate(r, nil)
 	if err != nil {
 		t.Fatalf("Translate returned error: %v", err)
 	}
@@ -228,7 +230,7 @@ func TestTranslateUnknownTransactionAccount(t *testing.T) {
 						t.Fatalf("Translate panicked: %v", p)
 					}
 				}()
-				got, err = csv.Translate(r)
+				got, err = csv.Translate(r, nil)
 			}()
 			if tc.wantErr != "" {
 				if err == nil {
@@ -251,5 +253,28 @@ func TestTranslateUnknownTransactionAccount(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestWriteLogs is a regression test for issue #22: Write logs its counts
+// to the logger given to Translate instead of printing them.
+func TestWriteLogs(t *testing.T) {
+	r := &reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{{Line: 2, Name: "Checking", Type: "Bank"}}},
+		Transactions: []*transaction.Record{
+			{Line: 10, Type: "Bank", Account: "Checking", Date: "2021/01/01", AmountTCode: "-5.00", Category: "Food"},
+			{Line: 20, Type: "Bank", Account: "Checking", Date: "2021/01/02", AmountTCode: "0.00", Category: "Food"},
+		},
+	}
+	var log bytes.Buffer
+	c, err := csv.Translate(r, slog.New(slog.NewTextHandler(&log, nil)))
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	if err := c.Write(io.Discard); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if want := `level=INFO msg="csv: write complete" written=2 skipped=1`; !strings.Contains(log.String(), want) {
+		t.Errorf("log: want %q, got %q", want, log.String())
 	}
 }

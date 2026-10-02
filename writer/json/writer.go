@@ -31,12 +31,14 @@ import (
 	"github.com/maloquacious/qif/normalizer"
 	"github.com/maloquacious/qif/reader"
 	"io"
+	"log/slog"
 )
 
 type JSON struct {
 	Accounts     []Account     `json:"accounts"`
 	Categories   []Category    `json:"categories"`
 	Transactions []Transaction `json:"transactions"`
+	logger       *slog.Logger
 }
 
 type Account struct {
@@ -79,8 +81,10 @@ type Split struct {
 	Memo     string `json:"memo,omitempty"`
 }
 
-func Translate(r *reader.Reader) (*JSON, error) {
-	var j JSON
+// Translate converts the reader's data. Write logs to logger; a nil logger
+// discards the log.
+func Translate(r *reader.Reader, logger *slog.Logger) (*JSON, error) {
+	j := JSON{logger: logger}
 
 	if r.Accounts != nil {
 		for _, account := range r.Accounts.Records {
@@ -167,8 +171,15 @@ func (j *JSON) Write(w io.Writer) error {
 	if n != len(buf) {
 		return fmt.Errorf("short write")
 	}
-	fmt.Printf("json: wrote %8d accounts\n", len(j.Accounts))
-	fmt.Printf("json: wrote %8d categories\n", len(j.Categories))
-	fmt.Printf("json: wrote %8d transactions\n", len(j.Transactions))
+	j.log().Info("json: write complete",
+		"accounts", len(j.Accounts), "categories", len(j.Categories), "transactions", len(j.Transactions))
 	return nil
+}
+
+// log returns the logger, or one that discards everything if there is none.
+func (j *JSON) log() *slog.Logger {
+	if j.logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return j.logger
 }

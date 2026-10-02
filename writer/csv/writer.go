@@ -31,6 +31,7 @@ import (
 	"github.com/maloquacious/qif/normalizer"
 	"github.com/maloquacious/qif/reader"
 	"io"
+	"log/slog"
 	"sort"
 	"strings"
 )
@@ -41,6 +42,7 @@ type CSV struct {
 	Map          struct {
 		Accounts map[string]*Account
 	}
+	logger *slog.Logger
 }
 
 type Account struct {
@@ -80,8 +82,11 @@ type Split struct {
 	Memo     string
 }
 
-func Translate(r *reader.Reader) (*CSV, error) {
+// Translate converts the reader's data. Write logs to logger; a nil logger
+// discards the log.
+func Translate(r *reader.Reader, logger *slog.Logger) (*CSV, error) {
 	var c CSV
+	c.logger = logger
 	c.Map.Accounts = make(map[string]*Account)
 
 	if r.Accounts != nil {
@@ -242,10 +247,17 @@ func (c *CSV) Write(w io.Writer) error {
 		return err
 	}
 
-	fmt.Printf("csv: skipped   %8d records\n", skipped)
-	fmt.Printf("csv: wrote     %8d records\n", written)
+	c.log().Info("csv: write complete", "written", written, "skipped", skipped)
 
 	return nil
+}
+
+// log returns the logger, or one that discards everything if there is none.
+func (c *CSV) log() *slog.Logger {
+	if c.logger == nil {
+		return slog.New(slog.DiscardHandler)
+	}
+	return c.logger
 }
 
 func (c *CSV) Len() int {

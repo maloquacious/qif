@@ -26,6 +26,8 @@ package ledger
 
 import (
 	"bytes"
+	"io"
+	"log/slog"
 	"math"
 	"strconv"
 	"strings"
@@ -89,7 +91,7 @@ func TestTranslateUnknownAccountType(t *testing.T) {
 				t.Fatalf("Translate panicked: %v", p)
 			}
 		}()
-		_, err = Translate(openingBalance("Mutual"))
+		_, err = Translate(openingBalance("Mutual"), nil)
 	}()
 	if err == nil {
 		t.Fatal("Translate: expected error, got nil")
@@ -112,7 +114,7 @@ func TestTranslateInvestmentOpeningBalance(t *testing.T) {
 						t.Fatalf("Translate panicked: %v", p)
 					}
 				}()
-				l, err = Translate(openingBalance(typ))
+				l, err = Translate(openingBalance(typ), nil)
 			}()
 			if err != nil {
 				t.Fatalf("Translate returned error: %v", err)
@@ -202,7 +204,7 @@ func TestWriteTransfersOnce(t *testing.T) {
 		{Line: 40, Type: "Bank", Account: "Savings", Date: "2021/01/02", Payee: "From Checking",
 			AmountTCode: "200.00", ToAccount: "Checking"},
 	}}
-	l, err := Translate(r)
+	l, err := Translate(r, nil)
 	if err != nil {
 		t.Fatalf("Translate returned error: %v", err)
 	}
@@ -257,4 +259,24 @@ func balances(t *testing.T, journal string) map[string]int64 {
 		entry += cents
 	}
 	return totals
+}
+
+// TestWriteLogs is a regression test for issue #22: Write logs its counts
+// to the logger given to Translate instead of printing them.
+func TestWriteLogs(t *testing.T) {
+	r := &reader.Reader{Transactions: []*transaction.Record{
+		{Line: 10, Type: "Bank", Account: "Checking", Date: "2021/01/01", AmountTCode: "-5.00", Category: "Food"},
+		{Line: 20, Type: "Bank", Account: "Checking", Date: "2021/01/02", AmountTCode: "0.00", Category: "Food"},
+	}}
+	var log bytes.Buffer
+	l, err := Translate(r, slog.New(slog.NewTextHandler(&log, nil)))
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	if err := l.Write(io.Discard); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if want := `level=INFO msg="ledger: write complete" written=1 skipped=1`; !strings.Contains(log.String(), want) {
+		t.Errorf("log: want %q, got %q", want, log.String())
+	}
 }

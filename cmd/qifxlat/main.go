@@ -35,15 +35,19 @@ import (
 	ldata "github.com/maloquacious/qif/writer/ledger"
 	"io"
 	"io/ioutil"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"time"
 )
 
 func main() {
+	// until the configuration is read, errors are logged with the defaults
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
 	cfg, err := config()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
+		logger.Error("qifxlat: configuration", "err", err)
 		os.Exit(2)
 	}
 
@@ -52,14 +56,31 @@ func main() {
 		return
 	}
 
-	if err = run(cfg); err != nil {
-		fmt.Fprintf(os.Stderr, "%+v\n", err)
+	if logger, err = newLogger(os.Stderr, cfg.Log.Level, cfg.Log.Format); err != nil {
+		slog.New(slog.NewTextHandler(os.Stderr, nil)).Error("qifxlat: configuration", "err", err)
+		os.Exit(2)
+	}
+
+	if err = run(cfg, logger); err != nil {
+		logger.Error("qifxlat: failed", "err", err)
 		os.Exit(2)
 	}
 }
 
-func run(cfg *Config) error {
+func run(cfg *Config, logger *slog.Logger) error {
 	started := time.Now()
+
+	logger.Debug("qifxlat: settings",
+		"version", qif.Version().String(),
+		"input", cfg.Input.QIF,
+		"csv", cfg.Output.CSV,
+		"json", cfg.Output.JSON,
+		"ledger", cfg.Output.Ledger,
+		"log_level", cfg.Log.Level,
+		"log_format", cfg.Log.Format)
+	if cfg.Output.CSV == "" && cfg.Output.JSON == "" && cfg.Output.Ledger == "" {
+		logger.Warn("qifxlat: no output files specified; validating the QIF data only")
+	}
 
 	input, err := ioutil.ReadFile(cfg.Input.QIF)
 	if err != nil {
@@ -76,100 +97,67 @@ func run(cfg *Config) error {
 		return err
 	}
 
-	var totalRecords int
-	if r.Accounts == nil {
-		fmt.Printf("import: read %8d accounts\n", 0)
-	} else {
-		fmt.Printf("import: read %8d accounts\n", len(r.Accounts.Records))
-		totalRecords += len(r.Accounts.Records)
+	// Accounts, Categories, Securities and Tags are nil when the file lacks the section
+	var accounts, categories, securities, tags int
+	if r.Accounts != nil {
+		accounts = len(r.Accounts.Records)
 	}
-	if r.Categories == nil {
-		fmt.Printf("import: read %8d categories\n", 0)
-	} else {
-		fmt.Printf("import: read %8d categories\n", len(r.Categories.Records))
-		totalRecords += len(r.Categories.Records)
+	if r.Categories != nil {
+		categories = len(r.Categories.Records)
 	}
-	fmt.Printf("import: read %8d memorized\n", len(r.Memorized))
-	totalRecords += len(r.Memorized)
-	fmt.Printf("import: read %8d prices\n", len(r.Prices))
-	totalRecords += len(r.Prices)
-	if r.Securities == nil {
-		fmt.Printf("import: read %8d securities\n", 0)
-	} else {
-		fmt.Printf("import: read %8d securities\n", len(r.Securities.Records))
-		totalRecords += len(r.Securities.Records)
+	if r.Securities != nil {
+		securities = len(r.Securities.Records)
 	}
-	if r.Tags == nil {
-		fmt.Printf("import: read %8d tags\n", 0)
-	} else {
-		fmt.Printf("import: read %8d tags\n", len(r.Tags.Records))
+	if r.Tags != nil {
+		tags = len(r.Tags.Records)
 	}
-	fmt.Printf("import: read %8d transactions\n", len(r.Transactions))
-	totalRecords += len(r.Transactions)
-
-	if cfg.Show.Timing {
-		duration := time.Now().Sub(started)
-		fmt.Printf("import: finished in %v\n", duration)
-	}
+	logger.Info("import: read complete",
+		"accounts", accounts,
+		"categories", categories,
+		"memorized", len(r.Memorized),
+		"prices", len(r.Prices),
+		"securities", securities,
+		"tags", tags,
+		"transactions", len(r.Transactions))
+	logger.Debug("import: finished", "duration", time.Since(started))
 
 	if cfg.Output.CSV != "" {
 		started := time.Now()
-
-		data, err := cdata.Translate(r)
+		data, err := cdata.Translate(r, logger)
 		if err != nil {
 			return err
 		}
-		err = writeFile(cfg.Output.CSV, data.Write)
-		if err != nil {
+		if err = writeFile(cfg.Output.CSV, data.Write); err != nil {
 			return err
 		}
-
-		if cfg.Show.Timing {
-			duration := time.Now().Sub(started)
-			fmt.Printf("csv: finished in %v\n", duration)
-		}
+		logger.Debug("csv: finished", "duration", time.Since(started))
 	}
 
 	if cfg.Output.JSON != "" {
 		started := time.Now()
-
-		data, err := jdata.Translate(r)
+		data, err := jdata.Translate(r, logger)
 		if err != nil {
 			return err
 		}
-		err = writeFile(cfg.Output.JSON, data.Write)
-		if err != nil {
+		if err = writeFile(cfg.Output.JSON, data.Write); err != nil {
 			return err
 		}
-
-		if cfg.Show.Timing {
-			duration := time.Now().Sub(started)
-			fmt.Printf("json: finished in %v\n", duration)
-		}
+		logger.Debug("json: finished", "duration", time.Since(started))
 	}
 
 	if cfg.Output.Ledger != "" {
 		started := time.Now()
-
-		data, err := ldata.Translate(r)
+		data, err := ldata.Translate(r, logger)
 		if err != nil {
 			return err
 		}
-		err = writeFile(cfg.Output.Ledger, data.Write)
-		if err != nil {
+		if err = writeFile(cfg.Output.Ledger, data.Write); err != nil {
 			return err
 		}
-
-		if cfg.Show.Timing {
-			duration := time.Now().Sub(started)
-			fmt.Printf("ledger: finished in %v\n", duration)
-		}
+		logger.Debug("ledger: finished", "duration", time.Since(started))
 	}
 
-	if cfg.Show.Timing {
-		duration := time.Now().Sub(started)
-		fmt.Printf("qif: finished run  in %v\n", duration)
-	}
+	logger.Info("qifxlat: run complete", "duration", time.Since(started))
 
 	return nil
 }

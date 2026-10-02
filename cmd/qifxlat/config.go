@@ -27,9 +27,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/maloquacious/qif"
-	"github.com/peterbourgon/ff/v3"
+	"io"
+	"log/slog"
 	"os"
+
+	"github.com/peterbourgon/ff/v3"
 )
 
 type Config struct {
@@ -41,22 +43,26 @@ type Config struct {
 		JSON   string
 		Ledger string
 	}
+	Log struct {
+		Level  string
+		Format string
+	}
 	Show struct {
-		Timing  bool
 		Version bool
 	}
 }
 
 func config() (*Config, error) {
 	cfg := Config{}
-	cfg.Show.Timing = true
+	cfg.Log.Level, cfg.Log.Format = "info", "text"
 
 	fs := flag.NewFlagSet("qifxlat", flag.ExitOnError)
 	fs.StringVar(&cfg.Input.QIF, "input", "", "QIF file to translate")
 	fs.StringVar(&cfg.Output.CSV, "output-csv-filename", cfg.Output.CSV, "file to write CSV data to")
 	fs.StringVar(&cfg.Output.JSON, "output-json-filename", cfg.Output.JSON, "file to write JSON data to")
 	fs.StringVar(&cfg.Output.Ledger, "output-ledger-filename", cfg.Output.Ledger, "file to write Ledger data to")
-	fs.BoolVar(&cfg.Show.Timing, "show-timing", cfg.Show.Timing, "display timing of stages")
+	fs.StringVar(&cfg.Log.Level, "log-level", cfg.Log.Level, "log level: debug, info, warn or error")
+	fs.StringVar(&cfg.Log.Format, "log-format", cfg.Log.Format, "log format: text or json")
 	fs.BoolVar(&cfg.Show.Version, "version", cfg.Show.Version, "display the version and exit")
 	_ = fs.String("config", "", "config file (optional)")
 
@@ -68,30 +74,35 @@ func config() (*Config, error) {
 		return &cfg, nil
 	}
 
-	fmt.Printf("%-30s == %q\n", "version", qif.Version().String())
 	if cfg.Input.QIF == "" {
-		return nil, fmt.Errorf("please provide the name of the QIF file to translate\n")
-	}
-	fmt.Printf("%-30s == %q\n", "QIFXLAT_INPUT", cfg.Input.QIF)
-	outputFileSpecified := false
-	if cfg.Output.CSV != "" {
-		fmt.Printf("%-30s == %q\n", "QIFXLAT_OUTPUT_CSV_FILENAME", cfg.Output.CSV)
-		outputFileSpecified = true
-	}
-	if cfg.Output.JSON != "" {
-		fmt.Printf("%-30s == %q\n", "QIFXLAT_OUTPUT_JSON_FILENAME", cfg.Output.JSON)
-		outputFileSpecified = true
-	}
-	if cfg.Output.Ledger != "" {
-		fmt.Printf("%-30s == %q\n", "QIFXLAT_OUTPUT_LEDGER_FILENAME", cfg.Output.Ledger)
-		outputFileSpecified = true
-	}
-	if !outputFileSpecified {
-		fmt.Printf("warning: no output file(s) specified; will validate QIF data only\n")
-	}
-	if cfg.Show.Timing {
-		fmt.Printf("%-30s == %v\n", "QIFXLAT_SHOW_TIMING", cfg.Show.Timing)
+		return nil, fmt.Errorf("please provide the name of the QIF file to translate")
 	}
 
 	return &cfg, nil
+}
+
+// newLogger returns a logger that writes to w at the given level
+// (debug, info, warn or error) in the given format (text or json).
+func newLogger(w io.Writer, level, format string) (*slog.Logger, error) {
+	var lvl slog.Level
+	switch level {
+	case "debug":
+		lvl = slog.LevelDebug
+	case "info":
+		lvl = slog.LevelInfo
+	case "warn":
+		lvl = slog.LevelWarn
+	case "error":
+		lvl = slog.LevelError
+	default:
+		return nil, fmt.Errorf("log level %q: want debug, info, warn or error", level)
+	}
+	opts := &slog.HandlerOptions{Level: lvl}
+	switch format {
+	case "text":
+		return slog.New(slog.NewTextHandler(w, opts)), nil
+	case "json":
+		return slog.New(slog.NewJSONHandler(w, opts)), nil
+	}
+	return nil, fmt.Errorf("log format %q: want text or json", format)
 }
