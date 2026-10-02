@@ -5,8 +5,6 @@ This package implements a QIF reader that loads data into a very simple view of 
 
 It includes some writers to show how to use the imported data.
 
-The `v0.1` release had a much nicer structure for the imported data.
-
 ## Versioning
 
 The module version is defined in `version.go` (`qif.Version()`), and `qifxlat -version` prints it.
