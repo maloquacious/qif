@@ -32,6 +32,7 @@ package reader
 
 import (
 	"fmt"
+
 	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/reader/security"
@@ -136,9 +137,7 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 			if section, bb, err := transaction.ReadSection(sc, r.active.account, r.active.accountType); err != nil {
 				return nil, err
 			} else if section != nil {
-				for _, xact := range section.Records {
-					r.Transactions = append(r.Transactions, xact)
-				}
+				r.Transactions = append(r.Transactions, section.Records...)
 				sc = bb
 				continue
 			}
@@ -146,18 +145,14 @@ func Read(sc scanner.Scanner) (*Reader, error) {
 		if section, bb, err := transaction.ReadSection(sc, "", "Memorized"); err != nil {
 			return nil, err
 		} else if section != nil {
-			for _, xact := range section.Records {
-				r.Memorized = append(r.Memorized, xact)
-			}
+			r.Memorized = append(r.Memorized, section.Records...)
 			sc = bb
 			continue
 		}
 		if section, bb, err := transaction.ReadSection(sc, "", "Prices"); err != nil {
 			return nil, err
 		} else if section != nil {
-			for _, xact := range section.Records {
-				r.Prices = append(r.Prices, xact)
-			}
+			r.Prices = append(r.Prices, section.Records...)
 			sc = bb
 			continue
 		}

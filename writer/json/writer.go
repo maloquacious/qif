@@ -28,10 +28,11 @@ package json
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/maloquacious/qif/normalizer"
-	"github.com/maloquacious/qif/reader"
 	"io"
 	"log/slog"
+
+	"github.com/maloquacious/qif/normalizer"
+	"github.com/maloquacious/qif/reader"
 )
 
 type JSON struct {
@@ -63,9 +64,6 @@ type Transaction struct {
 	Type          string  `json:"type,omitempty"`
 	Date          string  `json:"date,omitempty"`
 	Account       string  `json:"account,omitempty"`
-	ToAccount     string  `json:"to_account,omitempty"`
-	Amount        string  `json:"amount,omitempty"`
-	Category      string  `json:"category,omitempty"`
 	ClearedStatus string  `json:"cleared_status,omitempty"`
 	Memo          string  `json:"memo,omitempty"`
 	Payee         string  `json:"payee,omitempty"`
@@ -160,16 +158,10 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*JSON, error) {
 }
 
 func (j *JSON) Write(w io.Writer) error {
-	buf, err := json.MarshalIndent(j, "", "  ")
-	if err != nil {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(j); err != nil {
 		return err
-	}
-	n, err := w.Write(buf)
-	if err != nil {
-		return err
-	}
-	if n != len(buf) {
-		return fmt.Errorf("short write")
 	}
 	j.log().Info("json: write complete",
 		"accounts", len(j.Accounts), "categories", len(j.Categories), "transactions", len(j.Transactions))

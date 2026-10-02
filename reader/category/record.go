@@ -26,6 +26,7 @@ package category
 
 import (
 	"fmt"
+
 	"github.com/maloquacious/qif/scanner"
 )
 

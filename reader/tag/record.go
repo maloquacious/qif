@@ -26,6 +26,7 @@ package tag
 
 import (
 	"fmt"
+
 	"github.com/maloquacious/qif/scanner"
 )
 

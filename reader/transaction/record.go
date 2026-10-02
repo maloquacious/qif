@@ -26,9 +26,10 @@ package transaction
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/maloquacious/qif/scanner"
 	"github.com/maloquacious/qif/stdlib"
-	"strings"
 )
 
 type Record struct {

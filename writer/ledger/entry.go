@@ -27,7 +27,6 @@ package ledger
 import (
 	"fmt"
 	"io"
-	"sort"
 )
 
 type Entry struct {
@@ -45,7 +44,7 @@ type Entry struct {
 }
 
 func (e *Entry) Sort() {
-	sort.Sort(e.Lines)
+	e.Lines.Sort()
 }
 
 func (e *Entry) Write(w io.Writer) error {
@@ -76,18 +75,12 @@ func (e *Entry) Write(w io.Writer) error {
 			return err
 		}
 	}
-	//amount = "$" + amount
 
 	for _, l := range e.Lines {
 		// don't write the duplicate half of a transfer
 		if l.IsLinked {
 			continue
 		}
-		// don't write lines with no amount
-		//if l.IsZero {
-		//	continue
-		//}
-
 		err := l.Write(w)
 		if err != nil {
 			return err

@@ -27,18 +27,18 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
+	"os"
+	"path/filepath"
+	"time"
+
 	"github.com/maloquacious/qif"
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/scanner"
 	cdata "github.com/maloquacious/qif/writer/csv"
 	jdata "github.com/maloquacious/qif/writer/json"
 	ldata "github.com/maloquacious/qif/writer/ledger"
-	"io"
-	"io/ioutil"
-	"log/slog"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 func main() {
@@ -82,7 +82,7 @@ func run(cfg *Config, logger *slog.Logger) error {
 		logger.Warn("qifxlat: no output files specified; validating the QIF data only")
 	}
 
-	input, err := ioutil.ReadFile(cfg.Input.QIF)
+	input, err := os.ReadFile(cfg.Input.QIF)
 	if err != nil {
 		return err
 	}

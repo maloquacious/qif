@@ -26,19 +26,23 @@
 package csv
 
 import (
+	"cmp"
 	"encoding/csv"
 	"fmt"
-	"github.com/maloquacious/qif/normalizer"
-	"github.com/maloquacious/qif/reader"
 	"io"
 	"log/slog"
-	"sort"
+	"slices"
+	"strconv"
 	"strings"
+
+	"github.com/maloquacious/qif/normalizer"
+	"github.com/maloquacious/qif/reader"
+	"github.com/maloquacious/qif/stdlib"
 )
 
 type CSV struct {
 	Accounts     []*Account
-	Transactions []*Transaction `json:"transactions"`
+	Transactions []*Transaction
 	Map          struct {
 		Accounts map[string]*Account
 	}
@@ -60,9 +64,6 @@ type Transaction struct {
 	Type          string
 	Date          string
 	Account       *Account
-	ToAccount     string
-	Amount        string
-	Category      string
 	ClearedStatus string
 	IsLinked      bool
 	IsZero        bool
@@ -158,7 +159,12 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*CSV, error) {
 		c.Transactions = append(c.Transactions, xact)
 	}
 
-	sort.Sort(&c)
+	slices.SortFunc(c.Transactions, func(a, b *Transaction) int {
+		return cmp.Or(
+			cmp.Compare(a.Date, b.Date),
+			cmp.Compare(a.Account.Name, b.Account.Name),
+			cmp.Compare(a.Line, b.Line))
+	})
 
 	return &c, nil
 }
@@ -172,7 +178,7 @@ func (c *CSV) Write(w io.Writer) error {
 		"LINE", "SEQ", "DATE", "STATUS", "REFNO", "PAYEE",
 		"MEMO",
 		"ALINE", "ATYPE", "ANAME",
-		"SLINE", "TOACCT", "CATEGORY", "MEMO", "AMOUNT", "FLIPPED",
+		"SLINE", "TOACCT", "CATEGORY", "SMEMO", "AMOUNT", "FLIPPED",
 	}
 	if err := cw.Write(record); err != nil {
 		return err
@@ -201,21 +207,14 @@ func (c *CSV) Write(w io.Writer) error {
 			amount, flipped := strings.ReplaceAll(split.Amount, ",", ""), false
 			if t.Payee == "Opening Balance" && len(t.Split) == 1 {
 				if t.Account.Type == "ASS" || t.Account.Type == "LBT" {
-					if amount == "" || amount == "0.00" {
-						amount, flipped = "0.00", false
-					} else if amount[0] == '-' {
-						amount, flipped = amount[1:], true
-					} else if amount[0] == '+' {
-						amount, flipped = "-"+amount[1:], true
-					} else {
-						amount, flipped = "-"+amount, true
-					}
+					flipped = amount != "" && amount != "0.00"
+					amount = stdlib.FlipSign(amount)
 				}
 			}
 
 			// transaction
-			record[0] = fmt.Sprintf("%d", t.Line)
-			record[1] = fmt.Sprintf("%d", seq)
+			record[0] = strconv.Itoa(t.Line)
+			record[1] = strconv.Itoa(seq)
 			record[2] = t.Date
 			record[3] = t.ClearedStatus
 			record[4] = t.RefNo
@@ -223,17 +222,17 @@ func (c *CSV) Write(w io.Writer) error {
 			record[6] = t.Memo
 
 			// account
-			record[7] = fmt.Sprintf("%d", t.Account.Line)
+			record[7] = strconv.Itoa(t.Account.Line)
 			record[8] = t.Account.Type
 			record[9] = t.Account.Name
 
 			// splits
-			record[10] = fmt.Sprintf("%d", split.Line)
+			record[10] = strconv.Itoa(split.Line)
 			record[11] = split.Account
 			record[12] = split.Category
 			record[13] = split.Memo
 			record[14] = amount
-			record[15] = fmt.Sprintf("%v", flipped)
+			record[15] = strconv.FormatBool(flipped)
 
 			if err := cw.Write(record); err != nil {
 				return err
@@ -258,28 +257,4 @@ func (c *CSV) log() *slog.Logger {
 		return slog.New(slog.DiscardHandler)
 	}
 	return c.logger
-}
-
-func (c *CSV) Len() int {
-	return len(c.Transactions)
-}
-
-func (c *CSV) Less(i, j int) bool {
-	if c.Transactions[i].Date < c.Transactions[j].Date {
-		return true
-	}
-	if c.Transactions[i].Date > c.Transactions[j].Date {
-		return false
-	}
-	if c.Transactions[i].Account.Name < c.Transactions[j].Account.Name {
-		return true
-	}
-	if c.Transactions[i].Account.Name > c.Transactions[j].Account.Name {
-		return false
-	}
-	return c.Transactions[i].Line < c.Transactions[j].Line
-}
-
-func (c *CSV) Swap(i, j int) {
-	c.Transactions[i], c.Transactions[j] = c.Transactions[j], c.Transactions[i]
 }
