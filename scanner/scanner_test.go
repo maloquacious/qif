@@ -25,6 +25,7 @@
 package scanner_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/maloquacious/qif/scanner"
@@ -100,5 +101,52 @@ func TestLiteralReturnsRestOfLine(t *testing.T) {
 	}
 	if string(rest.Buffer) != input {
 		t.Errorf("input of %q advanced the scanner to %q\n", input, rest.Buffer)
+	}
+}
+
+// TestColumnsAreOneBased is a regression test for issue #47.
+// Columns start at 1 on every line, including the first.
+func TestColumnsAreOneBased(t *testing.T) {
+	input := "NChecking\nTBank\n"
+	sc, err := scanner.New([]byte(input))
+	if err != nil {
+		t.Fatalf("input of %q: unexpected error %v\n", input, err)
+	}
+	if sc.Line != 1 || sc.Col != 1 {
+		t.Errorf("New: position is %d:%d: expected 1:1\n", sc.Line, sc.Col)
+	}
+
+	// The first field on line 1 and on line 2 start in the same column.
+	first := sc
+	_, sc = sc.Field("N")
+	second := sc
+	if second.Line != 2 {
+		t.Fatalf("Field: line is %d: expected 2\n", second.Line)
+	}
+	if first.Col != 1 || second.Col != 1 {
+		t.Errorf("field columns are %d and %d: expected 1 and 1\n", first.Col, second.Col)
+	}
+}
+
+// TestNewInvalidUTF8Column is a regression test for issue #47.
+// An invalid byte at the start of any line is reported in column 1.
+func TestNewInvalidUTF8Column(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{"\xffNChecking\n", "line 1, col 1"},
+		{"NChecking\n\xffTBank\n", "line 2, col 1"},
+		{"NChecking\r\n\xffTBank\n", "line 2, col 1"},
+		{"NCh\xff\n", "line 1, col 4"},
+	} {
+		_, err := scanner.New([]byte(tc.input))
+		if err == nil {
+			t.Errorf("input of %q: expected error, got nil\n", tc.input)
+			continue
+		}
+		if !strings.HasSuffix(err.Error(), tc.want) {
+			t.Errorf("input of %q: error %q: expected it to end with %q\n", tc.input, err, tc.want)
+		}
 	}
 }
