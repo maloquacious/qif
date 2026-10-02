@@ -30,8 +30,7 @@ import (
 	"io"
 	"log/slog"
 	"os"
-
-	"github.com/peterbourgon/ff/v3"
+	"strings"
 )
 
 type Config struct {
@@ -52,7 +51,18 @@ type Config struct {
 	}
 }
 
+// envPrefix is prepended to a flag's name to form its environment variable.
+const envPrefix = "QIFXLAT_"
+
+// config reads the configuration from the command line and the environment.
 func config() (*Config, error) {
+	return parseConfig(os.Args[1:], os.LookupEnv)
+}
+
+// parseConfig reads the configuration from args and from the environment
+// variables that getenv looks up. Each flag can also be set by the variable
+// named by envName; a flag given in args overrides its variable.
+func parseConfig(args []string, getenv func(string) (string, bool)) (*Config, error) {
 	cfg := Config{}
 	cfg.Log.Level, cfg.Log.Format = "info", "text"
 
@@ -64,9 +74,25 @@ func config() (*Config, error) {
 	fs.StringVar(&cfg.Log.Level, "log-level", cfg.Log.Level, "log level: debug, info, warn or error")
 	fs.StringVar(&cfg.Log.Format, "log-format", cfg.Log.Format, "log format: text or json")
 	fs.BoolVar(&cfg.Show.Version, "version", cfg.Show.Version, "display the version and exit")
-	_ = fs.String("config", "", "config file (optional)")
+	fs.Usage = func() { usage(fs) }
 
-	if err := ff.Parse(fs, os.Args[1:], ff.WithEnvVarPrefix("QIFXLAT"), ff.WithConfigFileFlag("config"), ff.WithConfigFileParser(ff.PlainParser)); err != nil {
+	// apply the environment first, so that the command line overrides it
+	var err error
+	fs.VisitAll(func(f *flag.Flag) {
+		if err != nil {
+			return
+		}
+		name := envName(f.Name)
+		if value, ok := getenv(name); ok {
+			if setErr := fs.Set(f.Name, value); setErr != nil {
+				err = fmt.Errorf("%s=%q: %w", name, value, setErr)
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
 
@@ -79,6 +105,26 @@ func config() (*Config, error) {
 	}
 
 	return &cfg, nil
+}
+
+// envName returns the environment variable for the flag: the flag name
+// uppercased, with "-" replaced by "_", after envPrefix.
+func envName(flagName string) string {
+	return envPrefix + strings.ToUpper(strings.ReplaceAll(flagName, "-", "_"))
+}
+
+// usage writes the help text, listing each flag with its environment variable.
+func usage(fs *flag.FlagSet) {
+	w := fs.Output()
+	fmt.Fprintf(w, "Usage of %s:\n", fs.Name())
+	fs.VisitAll(func(f *flag.Flag) {
+		fmt.Fprintf(w, "  -%s (env %s)\n    \t%s", f.Name, envName(f.Name), f.Usage)
+		if f.DefValue != "" && f.DefValue != "false" {
+			fmt.Fprintf(w, " (default %q)", f.DefValue)
+		}
+		fmt.Fprintln(w)
+	})
+	fmt.Fprintln(w, "A flag on the command line overrides its environment variable.")
 }
 
 // newLogger returns a logger that writes to w at the given level
