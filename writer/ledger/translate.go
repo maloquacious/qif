@@ -36,8 +36,8 @@ import (
 
 // Translate converts the reader's transactions. Write logs to logger; a nil
 // logger discards the log.
-func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
-	l := &LEDGER{logger: logger}
+func Translate(r *reader.Reader, logger *slog.Logger) (*Ledger, error) {
+	l := &Ledger{logger: logger}
 
 	for _, t := range normalizer.Transactions(r.Transactions) {
 		// most transactions in ledger require the opposite of the QIF sign
@@ -54,6 +54,7 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
 			AccountType: t.Type,
 			Cleared:     t.ClearedStatus,
 			Date:        t.Date,
+			Memo:        t.Memo,
 			Payee:       t.Payee,
 			RefNo:       t.RefNo,
 		}
@@ -73,19 +74,17 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
 			}
 			line.Amount = amount
 
-			if line.Category == "" {
-				line.Category, line.Source = split.Account, "account"
-				if line.Category == "" {
-					line.Category, line.Source = split.Category, "category"
-					if line.Category == "" {
-						line.Category, line.Source = split.Ticker, "ticker"
-						if line.Category == "" {
-							line.Category, line.Source = split.Memo, "memo"
-							if line.Category == "" {
-								line.Category, line.Source = "Missing Category", "none"
-							}
-						}
-					}
+			// the first non-empty name wins
+			line.Category, line.Source = "Missing Category", "none"
+			for _, c := range []struct{ name, source string }{
+				{split.Account, "account"},
+				{split.Category, "category"},
+				{split.Ticker, "ticker"},
+				{split.Memo, "memo"},
+			} {
+				if c.name != "" {
+					line.Category, line.Source = c.name, c.source
+					break
 				}
 			}
 
@@ -95,6 +94,13 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
 			}
 
 			e.Lines = append(e.Lines, line)
+		}
+
+		// the normalizer moves the memo of a transaction with no splits to
+		// the split it creates (on the transaction's own line); write it
+		// unless it already names the category
+		if e.Memo == "" && len(e.Lines) == 1 && e.Lines[0].Line == t.Line && e.Lines[0].Source != "memo" {
+			e.Memo = t.Split[0].Memo
 		}
 
 		l.Entries = append(l.Entries, e)
@@ -109,19 +115,15 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*LEDGER, error) {
 // but a couple don't. It returns an error for a single-line opening
 // balance in an account of unknown type.
 func doFlipSign(accountType, payee string, numberOfLines int) (bool, error) {
-	if payee != "Opening Balance" {
-		return true, nil
-	}
-	if numberOfLines != 1 {
+	if payee != "Opening Balance" || numberOfLines != 1 {
 		return true, nil
 	}
 	switch accountType {
-	case "Bank", "Cash", "CCard", "Oth A", "Oth L":
-		return false, nil
-	case "Invst", "Port", "401(k)/403(b)":
+	case "Bank", "Cash", "CCard", "Oth A", "Oth L",
 		// investment accounts are assets, so they follow the same rule as
 		// the asset types (Bank, Cash, Oth A): no flip for a single-line
 		// opening balance.
+		"Invst", "Port", "401(k)/403(b)":
 		return false, nil
 	}
 	return false, fmt.Errorf("unknown account type %q", accountType)

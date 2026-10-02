@@ -22,6 +22,7 @@
  * SOFTWARE.
  */
 
+// Package scanner implements an immutable cursor over QIF input.
 package scanner
 
 import (

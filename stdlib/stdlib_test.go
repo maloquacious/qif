@@ -25,8 +25,9 @@
 package stdlib_test
 
 import (
-	"github.com/maloquacious/qif/stdlib"
 	"testing"
+
+	"github.com/maloquacious/qif/stdlib"
 )
 
 func TestDate(t *testing.T) {

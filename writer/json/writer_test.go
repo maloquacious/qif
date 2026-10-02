@@ -26,15 +26,16 @@ package json_test
 
 import (
 	"bytes"
+	stdjson "encoding/json"
 	"io"
 	"log/slog"
 	"strings"
+	"testing"
 
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/writer/json"
-	"testing"
 )
 
 // TestTranslateNilSections verifies that Translate does not dereference
@@ -133,5 +134,30 @@ func TestWriteLogs(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "logger") {
 		t.Errorf("output contains the logger: %s", out.String())
+	}
+}
+
+// TestWriteValidJSON is a regression test for issue #21: Write produces one
+// JSON document ending with a newline.
+func TestWriteValidJSON(t *testing.T) {
+	j, err := json.Translate(&reader.Reader{
+		Accounts: &account.Section{Records: []*account.Record{{Line: 2, Name: "Checking", Type: "Bank"}}},
+	}, nil)
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	var out bytes.Buffer
+	if err := j.Write(&out); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	if !strings.HasSuffix(out.String(), "}\n") {
+		t.Errorf("output should end with a newline: %q", out.String())
+	}
+	var got map[string]any
+	if err := stdjson.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("output is not valid JSON: %v\n%s", err, out.String())
+	}
+	if _, ok := got["accounts"]; !ok {
+		t.Errorf("output missing accounts: %s", out.String())
 	}
 }

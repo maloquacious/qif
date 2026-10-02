@@ -22,6 +22,9 @@
  * SOFTWARE.
  */
 
+// Package normalizer flattens QIF transactions for the writers: every
+// transaction gets at least one split, and the duplicate half of each
+// transfer is marked as linked.
 package normalizer
 
 import (

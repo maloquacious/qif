@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
+// Package stdlib holds small helpers shared by the other packages.
 package stdlib
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Date translates QIF date to a string with the date formatted as yyyy/mm/dd.
@@ -94,7 +94,7 @@ func Date(b []byte) string {
 	}
 
 	if isdigit(b) { // digit
-		b, yy = b[1:], yy*10+atoi(b)
+		yy = yy*10 + atoi(b)
 	} else {
 		return "****/**/**"
 	}
@@ -126,13 +126,6 @@ func Date(b []byte) string {
 	return fmt.Sprintf("%4d/%02d/%02d", yyyy, mm, dd)
 }
 
-// Dup returns an exact copy of a slice.
-func Dup(src []byte) []byte {
-	dst := make([]byte, len(src))
-	copy(dst, src)
-	return dst
-}
-
 // FlipSign changes the sign of an amount
 func FlipSign(amount string) string {
 	if amount == "" || amount == "0.00" {
@@ -143,22 +136,4 @@ func FlipSign(amount string) string {
 		return "-" + amount[1:]
 	}
 	return "-" + amount
-}
-
-// SquashSpaces changes runs of spaces to a runs of underscore
-func SquashSpaces(s string) string {
-	for strings.Index(s, "  ") != -1 {
-		s = strings.ReplaceAll(s, "  ", "__")
-	}
-	return s
-}
-
-// ToInt converts a slice to an int.
-func ToInt(b []byte) (i int) {
-	for pos := 0; pos < len(b); pos++ {
-		if '0' <= b[pos] && b[pos] <= '9' {
-			i = i*10 + int(b[pos]) - '0'
-		}
-	}
-	return i
 }

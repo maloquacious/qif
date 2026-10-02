@@ -25,42 +25,28 @@
 package ledger
 
 import (
+	"cmp"
 	"io"
 	"log/slog"
-	"sort"
+	"slices"
 )
 
-type LEDGER struct {
+type Ledger struct {
 	Entries []*Entry
 	logger  *slog.Logger
 }
 
-func (l *LEDGER) Len() int {
-	return len(l.Entries)
-}
-
-func (l *LEDGER) Less(i, j int) bool {
-	if l.Entries[i].Date < l.Entries[j].Date {
-		return true
-	}
-	if l.Entries[i].Date > l.Entries[j].Date {
-		return false
-	}
-	return l.Entries[i].Line < l.Entries[j].Line
-}
-
-func (l *LEDGER) Sort() {
-	sort.Sort(l)
+// Sort orders the entries by date, then by line, and sorts each entry's lines.
+func (l *Ledger) Sort() {
+	slices.SortFunc(l.Entries, func(a, b *Entry) int {
+		return cmp.Or(cmp.Compare(a.Date, b.Date), cmp.Compare(a.Line, b.Line))
+	})
 	for _, e := range l.Entries {
 		e.Sort()
 	}
 }
 
-func (l *LEDGER) Swap(i, j int) {
-	l.Entries[i], l.Entries[j] = l.Entries[j], l.Entries[i]
-}
-
-func (l *LEDGER) Write(w io.Writer) error {
+func (l *Ledger) Write(w io.Writer) error {
 	skipped, written, err := l.write(w)
 	if err != nil {
 		return err
@@ -72,7 +58,7 @@ func (l *LEDGER) Write(w io.Writer) error {
 }
 
 // log returns the logger, or one that discards everything if there is none.
-func (l *LEDGER) log() *slog.Logger {
+func (l *Ledger) log() *slog.Logger {
 	if l.logger == nil {
 		return slog.New(slog.DiscardHandler)
 	}
@@ -81,7 +67,7 @@ func (l *LEDGER) log() *slog.Logger {
 
 // write writes the entries to w and returns the number of entries
 // skipped and written.
-func (l *LEDGER) write(w io.Writer) (skipped, written int, err error) {
+func (l *Ledger) write(w io.Writer) (skipped, written int, err error) {
 	for _, e := range l.Entries {
 		// don't write entries that are missing amounts or that only
 		// duplicate transfers written by another entry

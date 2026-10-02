@@ -27,8 +27,8 @@
 package transaction
 
 import (
-	"fmt"
 	"github.com/maloquacious/qif/reader/account"
+	"github.com/maloquacious/qif/reader/internal/section"
 	"github.com/maloquacious/qif/scanner"
 )
 
@@ -44,45 +44,25 @@ type Section struct {
 // section. Each record keeps the account's own type. The accountType may
 // also be "Memorized" or "Prices" for those sections.
 func ReadSection(sc scanner.Scanner, accountName, accountType string) (*Section, scanner.Scanner, error) {
-	saved, sname, section := sc, "transactions", Section{Line: sc.Line, Col: sc.Col}
-
-	var literal string
+	var header string
 	switch accountType {
 	case "Memorized", "Prices":
-		literal = "!Type:" + accountType
+		header = "!Type:" + accountType
 	default:
 		transactionType, ok := account.TransactionType(accountType)
 		if !ok {
 			// unknown (or empty) account type, so this can't be a transaction section
-			return nil, saved, nil
+			return nil, sc, nil
 		}
-		literal = "!Type:" + transactionType
-	}
-	lit, bb := sc.Literal(literal)
-	if lit == nil {
-		return nil, saved, nil
-	}
-	sc = bb
-
-	// read the section detail
-	var err error
-	for {
-		var record *Record
-		record, sc, err = ReadRecord(sc, accountName, accountType)
-		if err != nil {
-			return nil, sc, fmt.Errorf("%d: %s: %w", section.Line, sname, err)
-		} else if record == nil {
-			break
-		}
-		section.Records = append(section.Records, record)
+		header = "!Type:" + transactionType
 	}
 
-	// read the end of section marker
-	eos, bb := sc.EndOfSection()
-	if eos == nil {
-		return nil, saved, fmt.Errorf("%d: %s: %d:%d: unexpected input", section.Line, sname, sc.Line, sc.Col)
+	readRecord := func(sc scanner.Scanner) (*Record, scanner.Scanner, error) {
+		return ReadRecord(sc, accountName, accountType)
 	}
-	sc = bb
-
-	return &section, sc, nil
+	s, sc, err := section.Read(sc, header, "transactions", readRecord)
+	if s == nil {
+		return nil, sc, err
+	}
+	return &Section{Line: s.Line, Col: s.Col, Records: s.Records}, sc, nil
 }

@@ -25,9 +25,10 @@
 package category_test
 
 import (
+	"testing"
+
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/scanner"
-	"testing"
 )
 
 func TestReadRecordTaxRelated(t *testing.T) {

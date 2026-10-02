@@ -26,6 +26,7 @@ package security
 
 import (
 	"fmt"
+
 	"github.com/maloquacious/qif/scanner"
 )
 

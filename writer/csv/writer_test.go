@@ -27,15 +27,16 @@ package csv_test
 import (
 	"bytes"
 	encsv "encoding/csv"
+	"io"
+	"log/slog"
+	"strings"
+	"testing"
+
 	"github.com/maloquacious/qif/reader"
 	"github.com/maloquacious/qif/reader/account"
 	"github.com/maloquacious/qif/reader/category"
 	"github.com/maloquacious/qif/reader/transaction"
 	"github.com/maloquacious/qif/writer/csv"
-	"io"
-	"log/slog"
-	"strings"
-	"testing"
 )
 
 // TestTranslateNilSections verifies that Translate does not dereference
@@ -276,5 +277,68 @@ func TestWriteLogs(t *testing.T) {
 	}
 	if want := `level=INFO msg="csv: write complete" written=2 skipped=1`; !strings.Contains(log.String(), want) {
 		t.Errorf("log: want %q, got %q", want, log.String())
+	}
+}
+
+// TestWriteHeader is a regression test for issue #21: the header names each
+// column once.
+func TestWriteHeader(t *testing.T) {
+	c, err := csv.Translate(&reader.Reader{}, nil)
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := c.Write(&buf); err != nil {
+		t.Fatalf("Write returned error: %v", err)
+	}
+	rows, err := encsv.NewReader(&buf).ReadAll()
+	if err != nil {
+		t.Fatalf("reading output: %v", err)
+	}
+	seen := map[string]bool{}
+	for _, name := range rows[0] {
+		if seen[name] {
+			t.Errorf("header: column %q appears twice: %v", name, rows[0])
+		}
+		seen[name] = true
+	}
+	if !seen["SMEMO"] {
+		t.Errorf("header: want an SMEMO column, got %v", rows[0])
+	}
+}
+
+// TestWriteOpeningBalanceFlip is a regression test for issue #21: a
+// single-line opening balance in an asset or liability account has its sign
+// flipped by stdlib.FlipSign, and a zero amount is not reported as flipped.
+func TestWriteOpeningBalanceFlip(t *testing.T) {
+	for _, tc := range []struct{ amount, want, flipped string }{
+		{"1,000.00", "-1000.00", "true"},
+		{"-5.00", "5.00", "true"},
+		{"+5.00", "-5.00", "true"},
+	} {
+		r := &reader.Reader{
+			Accounts: &account.Section{Records: []*account.Record{{Line: 2, Name: "House", Type: "Oth A"}}},
+			Transactions: []*transaction.Record{
+				{Line: 10, Type: "Oth A", Account: "House", Date: "2021/01/01", Payee: "Opening Balance", AmountTCode: tc.amount, ToAccount: "House"},
+			},
+		}
+		c, err := csv.Translate(r, nil)
+		if err != nil {
+			t.Fatalf("Translate returned error: %v", err)
+		}
+		var buf bytes.Buffer
+		if err := c.Write(&buf); err != nil {
+			t.Fatalf("Write returned error: %v", err)
+		}
+		rows, err := encsv.NewReader(&buf).ReadAll()
+		if err != nil {
+			t.Fatalf("reading output: %v", err)
+		}
+		if len(rows) != 2 {
+			t.Fatalf("%s: want 1 row, got %d", tc.amount, len(rows)-1)
+		}
+		if got := rows[1][14] + "|" + rows[1][15]; got != tc.want+"|"+tc.flipped {
+			t.Errorf("%s: want %s|%s, got %s", tc.amount, tc.want, tc.flipped, got)
+		}
 	}
 }

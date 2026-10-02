@@ -46,7 +46,7 @@ Data flows one way:
 ### reader: hand-written recursive descent
 
 Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transaction`) has the same two functions:
-- `ReadSection` matches its `!Type:` / `!Account` header with `Literal`, calls `ReadRecord` until it returns nil, then requires `EndOfSection` (`!` or EOF).
+- `ReadSection` calls the generic `section.Read` (`reader/internal/section`) with its `!Type:` / `!Account` header and its `ReadRecord`. `section.Read` matches the header with `Literal`, calls `ReadRecord` until it returns nil, then requires `EndOfSection` (`!` or EOF).
 - `ReadRecord` loops over the field codes:
   - Each single-occurrence field is guarded by `if x == nil`, so a repeated field ends the loop. Then `^` is required, otherwise it's a "missing record terminator" error.
   - Repeatable fields (address `A`, splits `S`/`E`/`$`, budget `B`) append instead.
@@ -76,7 +76,7 @@ Each `reader/<kind>` package (`account`, `category`, `security`, `tag`, `transac
 
 Each writer package has `Translate(*reader.Reader, *slog.Logger) (*T, error)` and `(*T).Write(io.Writer) error`. `Write` logs its counts at `Info` to the logger given to `Translate`; a nil logger discards them (`slog.DiscardHandler`). Library packages never print and never use `slog.Default()`.
 - `csv` and `json` map QIF account types to their own codes and return an error on unknown types.
-- `ledger` flips amount signs except for single-line opening balances (`doFlipSign`), and adds a balancing posting to the source account.
+- `ledger` flips amount signs except for single-line opening balances (`doFlipSign`), and adds a balancing posting to the source account. The transaction memo is written as a `; memo` comment under the entry header.
 
 ### stdlib
 

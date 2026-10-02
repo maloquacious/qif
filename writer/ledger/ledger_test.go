@@ -40,7 +40,7 @@ import (
 // TestWriteCountsSkipped verifies that entries with no amounts are counted
 // as skipped and are not written.
 func TestWriteCountsSkipped(t *testing.T) {
-	l := &LEDGER{Entries: []*Entry{
+	l := &Ledger{Entries: []*Entry{
 		{Line: 1, Date: "2026/01/01", Payee: "Kept One", Account: "Checking",
 			Lines: Lines{{Line: 2, Category: "Groceries", Amount: "10.00"}}},
 		{Line: 3, Date: "2026/01/02", Payee: "Zero Entry", Account: "Checking", IsZero: true,
@@ -106,7 +106,7 @@ func TestTranslateUnknownAccountType(t *testing.T) {
 func TestTranslateInvestmentOpeningBalance(t *testing.T) {
 	for _, typ := range []string{"Invst", "Port", "401(k)/403(b)"} {
 		t.Run(typ, func(t *testing.T) {
-			var l *LEDGER
+			var l *Ledger
 			var err error
 			func() {
 				defer func() {
@@ -278,5 +278,77 @@ func TestWriteLogs(t *testing.T) {
 	}
 	if want := `level=INFO msg="ledger: write complete" written=1 skipped=1`; !strings.Contains(log.String(), want) {
 		t.Errorf("log: want %q, got %q", want, log.String())
+	}
+}
+
+// TestTranslateMemo is a regression test for issue #21: the transaction memo
+// is written as a comment under the entry's header, unless it already names
+// the line's category.
+func TestTranslateMemo(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		record *transaction.Record
+		want   string
+	}{
+		{"no splits", &transaction.Record{AmountTCode: "-10.00", Category: "Food", Memo: "weekly shopping"},
+			"    ; weekly shopping\n"},
+		{"splits", &transaction.Record{AmountTCode: "-10.00", Memo: "weekly shopping", Split: []*transaction.Split{
+			{Line: 5, Amount: "-6.00", Category: "Food"},
+			{Line: 6, Amount: "-4.00", Category: "Soap"}}},
+			"    ; weekly shopping\n"},
+		{"memo is the category", &transaction.Record{AmountTCode: "-10.00", Memo: "weekly shopping"},
+			""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := tc.record
+			rec.Line, rec.Account, rec.Type, rec.Date, rec.Payee = 3, "Checking", "Bank", "2021/01/02", "Store"
+			l, err := Translate(&reader.Reader{Transactions: []*transaction.Record{rec}}, nil)
+			if err != nil {
+				t.Fatalf("Translate returned error: %v", err)
+			}
+			var buf bytes.Buffer
+			if err := l.Write(&buf); err != nil {
+				t.Fatalf("Write returned error: %v", err)
+			}
+			got := ""
+			if lines := strings.SplitAfter(buf.String(), "\n"); strings.HasPrefix(lines[1], "    ;") {
+				got = lines[1]
+			}
+			if got != tc.want {
+				t.Errorf("memo comment: want %q, got %q in:\n%s", tc.want, got, buf.String())
+			}
+		})
+	}
+}
+
+// TestTranslateCategorySource is a regression test for issue #21: a line's
+// category is the first non-empty of account, category, ticker and memo.
+func TestTranslateCategorySource(t *testing.T) {
+	for _, tc := range []struct {
+		name                         string
+		toAccount, category, ticker  string
+		memo, wantCategory, wantFrom string
+	}{
+		{"account", "Savings", "Food", "ACME", "memo", "Savings", "account"},
+		{"category", "", "Food", "ACME", "memo", "Food", "category"},
+		{"ticker", "", "", "ACME", "memo", "ACME", "ticker"},
+		{"memo", "", "", "", "memo", "memo", "memo"},
+		{"none", "", "", "", "", "Missing Category", "none"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &reader.Reader{Transactions: []*transaction.Record{{
+				Line: 3, Account: "Checking", Type: "Bank", Date: "2021/01/02", Payee: "Store",
+				AmountTCode: "-10.00", ToAccount: tc.toAccount, Category: tc.category,
+				Ticker: tc.ticker, Memo: tc.memo,
+			}}}
+			l, err := Translate(r, nil)
+			if err != nil {
+				t.Fatalf("Translate returned error: %v", err)
+			}
+			line := l.Entries[0].Lines[0]
+			if line.Category != tc.wantCategory || line.Source != tc.wantFrom {
+				t.Errorf("want %q from %q, got %q from %q", tc.wantCategory, tc.wantFrom, line.Category, line.Source)
+			}
+		})
 	}
 }

@@ -26,6 +26,7 @@ package account
 
 import (
 	"fmt"
+
 	"github.com/maloquacious/qif/scanner"
 )
 

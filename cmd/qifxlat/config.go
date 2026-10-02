@@ -25,6 +25,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -101,7 +102,7 @@ func parseConfig(args []string, getenv func(string) (string, bool)) (*Config, er
 	}
 
 	if cfg.Input.QIF == "" {
-		return nil, fmt.Errorf("please provide the name of the QIF file to translate")
+		return nil, errors.New("please provide the name of the QIF file to translate")
 	}
 
 	return &cfg, nil

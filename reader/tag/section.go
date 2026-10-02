@@ -27,7 +27,7 @@
 package tag
 
 import (
-	"fmt"
+	"github.com/maloquacious/qif/reader/internal/section"
 	"github.com/maloquacious/qif/scanner"
 )
 
@@ -37,34 +37,12 @@ type Section struct {
 	Records []*Record `json:"records,omitempty"`
 }
 
+// ReadSection reads a tags section. It returns a nil section and the
+// unchanged scanner if the input doesn't start with the "!Type:Tag" header.
 func ReadSection(sc scanner.Scanner) (*Section, scanner.Scanner, error) {
-	saved, sname, section := sc, "tags", Section{Line: sc.Line, Col: sc.Col}
-
-	lit, bb := sc.Literal("!Type:Tag")
-	if lit == nil {
-		return nil, saved, nil
+	s, sc, err := section.Read(sc, "!Type:Tag", "tags", ReadRecord)
+	if s == nil {
+		return nil, sc, err
 	}
-	sc = bb
-
-	// read the section detail
-	var err error
-	for {
-		var record *Record
-		record, sc, err = ReadRecord(sc)
-		if err != nil {
-			return nil, sc, fmt.Errorf("%d: %s: %w", section.Line, sname, err)
-		} else if record == nil {
-			break
-		}
-		section.Records = append(section.Records, record)
-	}
-
-	// read the end of section marker
-	eos, bb := sc.EndOfSection()
-	if eos == nil {
-		return nil, saved, fmt.Errorf("%d: %s: %d:%d: unexpected input", section.Line, sname, sc.Line, sc.Col)
-	}
-	sc = bb
-
-	return &section, sc, nil
+	return &Section{Line: s.Line, Col: s.Col, Records: s.Records}, sc, nil
 }

@@ -25,8 +25,10 @@
 package ledger
 
 import (
+	"cmp"
 	"fmt"
 	"io"
+	"slices"
 	"strings"
 )
 
@@ -41,16 +43,11 @@ type Line struct {
 	IsZero   bool
 }
 
-func (l Lines) Len() int {
-	return len(l)
-}
-
-func (l Lines) Less(i, j int) bool {
-	return l[i].Line < l[j].Line
-}
-
-func (l Lines) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
+// Sort orders the lines by their line number.
+func (l Lines) Sort() {
+	slices.SortFunc(l, func(a, b *Line) int {
+		return cmp.Compare(a.Line, b.Line)
+	})
 }
 
 func (l *Line) Write(w io.Writer) error {
@@ -62,7 +59,7 @@ func (l *Line) Write(w io.Writer) error {
 // name. When the name contains a double space or starts with "check", every
 // space is replaced with "_"; otherwise the name is returned unchanged.
 func ledgerName(name string) string {
-	if strings.Index(name, "  ") != -1 || strings.HasPrefix(name, "check") {
+	if strings.Contains(name, "  ") || strings.HasPrefix(name, "check") {
 		return strings.ReplaceAll(name, " ", "_")
 	}
 	return name
