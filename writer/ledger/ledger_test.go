@@ -26,6 +26,8 @@ package ledger
 
 import (
 	"bytes"
+	"math"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -175,4 +177,84 @@ func TestLedgerName(t *testing.T) {
 			t.Errorf("ledgerName(%q): got %q, want %q", tc.name, got, tc.want)
 		}
 	}
+}
+
+// TestWriteTransfersOnce is a regression test for issue #42: both halves of
+// a transfer are in the export, but each transfer is written once, so the
+// account balances are not inflated.
+func TestWriteTransfersOnce(t *testing.T) {
+	r := &reader.Reader{Transactions: []*transaction.Record{
+		// Checking -> Savings, both halves
+		{Line: 1, Type: "Bank", Account: "Checking", Date: "2021/01/02", Payee: "To Savings",
+			AmountTCode: "-200.00", ToAccount: "Savings"},
+		// Savings half of the split transfer at line 20
+		{Line: 10, Type: "Bank", Account: "Savings", Date: "2021/01/03", Payee: "From Checking",
+			AmountTCode: "50.00", ToAccount: "Checking"},
+		{Line: 20, Type: "Bank", Account: "Checking", Date: "2021/01/03", Payee: "Split",
+			AmountTCode: "-70.00", Split: []*transaction.Split{
+				{Line: 22, Account: "Savings", Amount: "-50.00"},
+				{Line: 24, Category: "Food", Amount: "-20.00"},
+			}},
+		// transfer to an account that is not in the export
+		{Line: 30, Type: "Bank", Account: "Checking", Date: "2021/01/04", Payee: "To Brokerage",
+			AmountTCode: "-30.00", ToAccount: "Brokerage"},
+		// Savings half of line 1
+		{Line: 40, Type: "Bank", Account: "Savings", Date: "2021/01/02", Payee: "From Checking",
+			AmountTCode: "200.00", ToAccount: "Checking"},
+	}}
+	l, err := Translate(r)
+	if err != nil {
+		t.Fatalf("Translate returned error: %v", err)
+	}
+	var buf bytes.Buffer
+	skipped, written, err := l.write(&buf)
+	if err != nil {
+		t.Fatalf("write returned error: %v", err)
+	}
+	if skipped != 1 || written != 4 {
+		t.Errorf("write: want 1 skipped and 4 written, got %d and %d:\n%s", skipped, written, buf.String())
+	}
+
+	got := balances(t, buf.String())
+	want := map[string]int64{"Checking": -30000, "Savings": 25000, "Food": 2000, "Brokerage": 3000}
+	for account, cents := range want {
+		if got[account] != cents {
+			t.Errorf("balance of %s: want %d cents, got %d\n%s", account, cents, got[account], buf.String())
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("balances: want %v, got %v", want, got)
+	}
+}
+
+// balances returns the balance in cents of every account posted to in a
+// ledger journal written by Entry.Write. A posting with no amount balances
+// its entry.
+func balances(t *testing.T, journal string) map[string]int64 {
+	t.Helper()
+	totals := make(map[string]int64)
+	var entry int64
+	for _, line := range strings.Split(journal, "\n") {
+		if !strings.HasPrefix(line, "    ") || strings.HasPrefix(line, "    ;") {
+			continue
+		}
+		if i := strings.Index(line, ";;"); i != -1 {
+			line = line[:i]
+		}
+		fields := strings.Fields(line)
+		last := fields[len(fields)-1]
+		if !strings.HasPrefix(last, "$") {
+			totals[strings.Join(fields, " ")] -= entry
+			entry = 0
+			continue
+		}
+		f, err := strconv.ParseFloat(strings.ReplaceAll(last[1:], ",", ""), 64)
+		if err != nil {
+			t.Fatalf("posting %q: %v", line, err)
+		}
+		cents := int64(math.Round(f * 100))
+		totals[strings.Join(fields[:len(fields)-1], " ")] += cents
+		entry += cents
+	}
+	return totals
 }

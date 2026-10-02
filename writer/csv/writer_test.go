@@ -108,29 +108,31 @@ func TestTranslateInvestmentAccount(t *testing.T) {
 	}
 }
 
-// TestWriteLinkedSplits is a regression test for issue #16: the writer skips
-// the linked splits of an Oth L transaction, not the whole transaction, and
-// writes Oth L opening balances with the liability sign flip.
+// TestWriteLinkedSplits is a regression test for issues #16 and #43: the
+// writer skips the linked splits of a transaction, not the whole
+// transaction, writes each transfer once, and writes Oth L opening balances
+// with the liability sign flip.
 func TestWriteLinkedSplits(t *testing.T) {
 	r := &reader.Reader{
 		Accounts: &account.Section{Records: []*account.Record{
 			{Line: 2, Name: "Checking", Type: "Bank"},
 			{Line: 4, Name: "Mortgage", Type: "Oth L"},
+			{Line: 6, Name: "Savings", Type: "Bank"},
 		}},
 		Transactions: []*transaction.Record{
 			// opening balance: not linked, written, sign flipped
 			{Line: 10, Type: "Oth L", Account: "Mortgage", Date: "2021/01/01", Payee: "Opening Balance",
 				AmountTCode: "-1,000.00", ToAccount: "Mortgage"},
-			// single transfer: linked, skipped
+			// single transfer: Oth L half of line 60, skipped
 			{Line: 15, Type: "Oth L", Account: "Mortgage", Date: "2021/01/02", Payee: "Single",
 				AmountTCode: "100.00", ToAccount: "Checking"},
-			// transfer on split 0: only the category row is written
+			// transfer on split 0 (half of line 62): only the category row is written
 			{Line: 20, Type: "Oth L", Account: "Mortgage", Date: "2021/01/03", Payee: "Split0",
 				AmountTCode: "90.00", Split: []*transaction.Split{
 					{Line: 22, Account: "Checking", Amount: "100.00"},
 					{Line: 24, Category: "Loan Fee", Amount: "-10.00"},
 				}},
-			// transfer on split 1: only the category row is written
+			// transfer on split 1 (half of line 64): only the category row is written
 			{Line: 30, Type: "Oth L", Account: "Mortgage", Date: "2021/01/04", Payee: "Split1",
 				AmountTCode: "90.00", Split: []*transaction.Split{
 					{Line: 32, Category: "Loan Fee", Amount: "-20.00"},
@@ -139,9 +141,24 @@ func TestWriteLinkedSplits(t *testing.T) {
 			// category only: written
 			{Line: 40, Type: "Oth L", Account: "Mortgage", Date: "2021/01/05", Payee: "Interest",
 				AmountTCode: "-5.00", Category: "Interest"},
-			// Bank side of a transfer: written
+			// Oth L transfer with no other half: written
+			{Line: 45, Type: "Oth L", Account: "Mortgage", Date: "2021/01/07", Payee: "Unmatched",
+				AmountTCode: "50.00", ToAccount: "Checking"},
+			// Bank transfer with no other half: written
 			{Line: 50, Type: "Bank", Account: "Checking", Date: "2021/01/06", Payee: "Payment",
 				AmountTCode: "-100.00", ToAccount: "Mortgage"},
+			// Bank halves of lines 15, 20 and 30: written
+			{Line: 60, Type: "Bank", Account: "Checking", Date: "2021/01/02", Payee: "Single",
+				AmountTCode: "-100.00", ToAccount: "Mortgage"},
+			{Line: 62, Type: "Bank", Account: "Checking", Date: "2021/01/03", Payee: "Split0",
+				AmountTCode: "-100.00", ToAccount: "Mortgage"},
+			{Line: 64, Type: "Bank", Account: "Checking", Date: "2021/01/04", Payee: "Split1",
+				AmountTCode: "-110.00", ToAccount: "Mortgage"},
+			// Bank to Bank transfer (issue #43): the half found first is written
+			{Line: 70, Type: "Bank", Account: "Checking", Date: "2021/01/08", Payee: "To Savings",
+				AmountTCode: "-200.00", ToAccount: "Savings"},
+			{Line: 80, Type: "Bank", Account: "Savings", Date: "2021/01/08", Payee: "From Checking",
+				AmountTCode: "200.00", ToAccount: "Checking"},
 		},
 	}
 	c, err := csv.Translate(r)
@@ -163,10 +180,15 @@ func TestWriteLinkedSplits(t *testing.T) {
 	}
 	want := []string{
 		"10|Opening Balance|10|Mortgage||1000.00|true",
+		"60|Single|60|Mortgage||-100.00|false",
+		"62|Split0|62|Mortgage||-100.00|false",
 		"20|Split0|24||Loan Fee|-10.00|false",
+		"64|Split1|64|Mortgage||-110.00|false",
 		"30|Split1|32||Loan Fee|-20.00|false",
 		"40|Interest|40||Interest|-5.00|false",
 		"50|Payment|50|Mortgage||-100.00|false",
+		"45|Unmatched|45|Checking||50.00|false",
+		"70|To Savings|70|Savings||-200.00|false",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("Write: want %d rows, got %d:\n%s", len(want), len(got), strings.Join(got, "\n"))
