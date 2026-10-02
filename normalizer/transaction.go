@@ -24,7 +24,8 @@
 
 // Package normalizer flattens QIF transactions for the writers: every
 // transaction gets at least one split, and the duplicate half of each
-// transfer is marked as linked.
+// transfer is marked as linked. ByAccount also groups the transactions
+// under their account.
 package normalizer
 
 import (

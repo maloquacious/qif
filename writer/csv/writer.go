@@ -43,10 +43,7 @@ import (
 type CSV struct {
 	Accounts     []*Account
 	Transactions []*Transaction
-	Map          struct {
-		Accounts map[string]*Account
-	}
-	logger *slog.Logger
+	logger       *slog.Logger
 }
 
 type Account struct {
@@ -88,75 +85,73 @@ type Split struct {
 func Translate(r *reader.Reader, logger *slog.Logger) (*CSV, error) {
 	var c CSV
 	c.logger = logger
-	c.Map.Accounts = make(map[string]*Account)
 
-	if r.Accounts != nil {
-		for _, account := range r.Accounts.Records {
-			var typ string
-			switch account.Type {
-			case "Bank":
-				typ = "BNK"
-			case "CCard":
-				typ = "CCD"
-			case "Cash":
-				typ = "CSH"
-			case "Oth A":
-				typ = "ASS"
-			case "Oth L":
-				typ = "LBT"
-			case "Invst":
-				typ = "INV"
-			case "Port":
-				typ = "BRK"
-			case "401(k)/403(b)":
-				typ = "RET"
-			default:
-				return nil, fmt.Errorf("%d: account %q: unknown account type %q", account.Line, account.Name, account.Type)
-			}
-			a := &Account{
-				Line:                 account.Line,
-				Type:                 typ,
-				Name:                 account.Name,
-				CreditLimit:          account.CreditLimit,
-				Description:          account.Description,
-				StatementBalance:     account.StatementBalance,
-				StatementBalanceDate: account.StatementBalanceDate,
-			}
-			c.Accounts = append(c.Accounts, a)
-			c.Map.Accounts[account.Name] = a
-		}
+	accounts, err := normalizer.ByAccount(r)
+	if err != nil {
+		return nil, err
 	}
 
-	for _, transaction := range normalizer.Transactions(r.Transactions) {
-		acct, ok := c.Map.Accounts[transaction.Account]
-		if !ok {
-			return nil, fmt.Errorf("%d: transaction: account %q is not in the account list", transaction.Line, transaction.Account)
+	for _, group := range accounts {
+		account := group.Record
+		var typ string
+		switch account.Type {
+		case "Bank":
+			typ = "BNK"
+		case "CCard":
+			typ = "CCD"
+		case "Cash":
+			typ = "CSH"
+		case "Oth A":
+			typ = "ASS"
+		case "Oth L":
+			typ = "LBT"
+		case "Invst":
+			typ = "INV"
+		case "Port":
+			typ = "BRK"
+		case "401(k)/403(b)":
+			typ = "RET"
+		default:
+			return nil, fmt.Errorf("%d: account %q: unknown account type %q", account.Line, account.Name, account.Type)
 		}
-		xact := &Transaction{
-			Line:          transaction.Line,
-			Account:       acct,
-			ClearedStatus: transaction.ClearedStatus,
-			Date:          transaction.Date,
-			IsLinked:      transaction.IsLinked,
-			IsZero:        transaction.IsZero,
-			Memo:          transaction.Memo,
-			Payee:         transaction.Payee,
-			RefNo:         transaction.RefNo,
-			Type:          transaction.Type,
+		acct := &Account{
+			Line:                 account.Line,
+			Type:                 typ,
+			Name:                 account.Name,
+			CreditLimit:          account.CreditLimit,
+			Description:          account.Description,
+			StatementBalance:     account.StatementBalance,
+			StatementBalanceDate: account.StatementBalanceDate,
 		}
-		for _, line := range transaction.Split {
-			split := Split{
-				Line:     line.Line,
-				Account:  line.Account,
-				Amount:   line.Amount,
-				Category: line.Category,
-				IsLinked: line.IsLinked,
-				IsZero:   line.IsZero,
-				Memo:     line.Memo,
+		c.Accounts = append(c.Accounts, acct)
+
+		for _, transaction := range group.Transactions {
+			xact := &Transaction{
+				Line:          transaction.Line,
+				Account:       acct,
+				ClearedStatus: transaction.ClearedStatus,
+				Date:          transaction.Date,
+				IsLinked:      transaction.IsLinked,
+				IsZero:        transaction.IsZero,
+				Memo:          transaction.Memo,
+				Payee:         transaction.Payee,
+				RefNo:         transaction.RefNo,
+				Type:          transaction.Type,
 			}
-			xact.Split = append(xact.Split, split)
+			for _, line := range transaction.Split {
+				split := Split{
+					Line:     line.Line,
+					Account:  line.Account,
+					Amount:   line.Amount,
+					Category: line.Category,
+					IsLinked: line.IsLinked,
+					IsZero:   line.IsZero,
+					Memo:     line.Memo,
+				}
+				xact.Split = append(xact.Split, split)
+			}
+			c.Transactions = append(c.Transactions, xact)
 		}
-		c.Transactions = append(c.Transactions, xact)
 	}
 
 	slices.SortFunc(c.Transactions, func(a, b *Transaction) int {
