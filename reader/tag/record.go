@@ -30,6 +30,8 @@ import (
 	"github.com/maloquacious/qif/scanner"
 )
 
+// Record is a tag in a !Type:Tag section. Line and Col are where the
+// record starts in the input.
 type Record struct {
 	Line        int    `json:"-"`
 	Col         int    `json:"-"`
@@ -37,6 +39,10 @@ type Record struct {
 	Name        string `json:"name"`
 }
 
+// ReadRecord reads one tag record, up to and including its "^" line.
+// Each field may appear once; a repeated field ends the record early. It
+// returns a nil record and the unchanged scanner if no field matches, and
+// an error if the name (N) is missing or the record isn't terminated.
 func ReadRecord(sc scanner.Scanner) (*Record, scanner.Scanner, error) {
 	saved, sname, record := sc, "tag", Record{Line: sc.Line, Col: sc.Col}
 

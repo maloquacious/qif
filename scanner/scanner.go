@@ -46,7 +46,9 @@ type Scanner struct {
 	Buffer []byte
 }
 
-// New returns a new scanner with a copy of the input.
+// New returns a scanner positioned at the start of a copy of the input.
+// It removes every carriage return ("\r"), appends a final newline if the
+// input doesn't end with one, and returns an error for invalid UTF-8.
 func New(input []byte) (Scanner, error) {
 	b, offset, line, col := make([]byte, 0, len(input)+1), 0, 1, 1
 	for offset < len(input) {
@@ -70,9 +72,13 @@ func New(input []byte) (Scanner, error) {
 	return Scanner{Buffer: b, Line: 1, Col: 1}, nil
 }
 
-// Date will accept a date string which looks like
+// Date accepts the flag followed by a QIF date, which looks like
 //
-//	digit digit? slash (space digit) digit tic digit digit
+//	digit digit? slash (space | digit) digit tic digit digit
+//
+// and consumes the rest of the line. The lexeme is the date as yyyy/mm/dd
+// (see stdlib.Date), not the original text. An invalid date, such as month
+// 13, is no match.
 func (buf Scanner) Date(flag string) ([]byte, Scanner) {
 	saved := buf
 
@@ -99,7 +105,7 @@ func (buf Scanner) Date(flag string) ([]byte, Scanner) {
 	}
 	length += w
 
-	if r, w = utf8.DecodeRune(buf.Buffer[length:]); !(r == ' ' || unicode.IsDigit(r)) { // (space digit)
+	if r, w = utf8.DecodeRune(buf.Buffer[length:]); !(r == ' ' || unicode.IsDigit(r)) { // (space | digit)
 		return nil, saved
 	}
 	length += w
@@ -136,7 +142,9 @@ func (buf Scanner) Date(flag string) ([]byte, Scanner) {
 	return []byte(lexeme), buf
 }
 
-// Field will accept text to the end of the line only if the flag matches.
+// Field accepts the flag and consumes the rest of the line. The lexeme is
+// the text after the flag, without the newline; it is empty, not nil, when
+// nothing follows the flag.
 func (buf Scanner) Field(flag string) ([]byte, Scanner) {
 	if !bytes.HasPrefix(buf.Buffer, []byte(flag)) {
 		return nil, buf
@@ -152,7 +160,8 @@ func (buf Scanner) Field(flag string) ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// EndOfLine will accept \r\n and \n.
+// EndOfLine accepts a newline. It also accepts "\r\n", but New removes
+// every "\r", so only a Scanner built some other way can contain one.
 func (buf Scanner) EndOfLine() ([]byte, Scanner) {
 	if len(buf.Buffer) == 0 {
 		return nil, buf
@@ -172,7 +181,9 @@ func (buf Scanner) EndOfLine() ([]byte, Scanner) {
 	return nil, buf
 }
 
-// EndOfRecord will accept '^' or end-of-input.
+// EndOfRecord accepts the record terminator '^' and consumes the rest of
+// its line. At the end of the input it returns "^" without consuming
+// anything.
 func (buf Scanner) EndOfRecord() ([]byte, Scanner) {
 	if len(buf.Buffer) == 0 {
 		return bdup([]byte{'^'}), buf
@@ -189,8 +200,9 @@ func (buf Scanner) EndOfRecord() ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// EndOfSection will accept '!' or end-of-input.
-// It does not actually consume the marker.
+// EndOfSection accepts the '!' that starts the next section header, or
+// the end of the input. It never consumes anything: the returned scanner
+// is the receiver.
 func (buf Scanner) EndOfSection() ([]byte, Scanner) {
 	if len(buf.Buffer) == 0 {
 		return bdup([]byte{'!'}), buf
@@ -202,7 +214,7 @@ func (buf Scanner) EndOfSection() ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// Literal will accept a literal and consume the rest of the line.
+// Literal accepts a literal and consumes the rest of the line.
 // On a match, the lexeme is the text between the literal and the end of the line;
 // it is never nil, even when empty. On no match, the lexeme is nil.
 // The literal must not contain a newline, since Line and Col are not adjusted for one.
@@ -221,7 +233,8 @@ func (buf Scanner) Literal(lit string) ([]byte, Scanner) {
 	return lexeme, buf
 }
 
-// ToEndOfLine will consume all the text up to (and including) the next end of line.
+// ToEndOfLine consumes the text up to and including the next newline. The
+// lexeme is the text before the newline; it is never nil.
 func (buf Scanner) ToEndOfLine() ([]byte, Scanner) {
 	// consume to the end of the line
 	var length int

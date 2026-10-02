@@ -32,6 +32,10 @@ import (
 	"github.com/maloquacious/qif/stdlib"
 )
 
+// Record is a transaction. Account and Type are the account it belongs to
+// and that account's type, or "" and "Memorized" or "Prices" for records
+// from those sections. For a Prices record, Ticker, Price and Date come
+// from the "symbol",price,"date" line.
 type Record struct {
 	Line          int
 	Col           int
@@ -58,6 +62,8 @@ type Record struct {
 	Type          string
 }
 
+// Split is one split line of a transaction (S, E and $ fields). A split
+// names either a Category or a transfer Account, never both.
 type Split struct {
 	Line     int    `json:"-"`
 	Col      int    `json:"-"`
@@ -83,6 +89,14 @@ func parseCategory(s string) (category, account, class string) {
 	return s, "", class
 }
 
+// ReadRecord reads one transaction record, up to and including its "^"
+// line, and stamps it with account and accountType. A, S, E, $ and the
+// price line may repeat, as may the budget fields 1 to 7 of a Memorized
+// record: S starts a new split, and E or $ fills the current one. Every
+// other field may appear once; a repeated field ends the record early.
+// It returns a nil record and the unchanged scanner if no field matches,
+// and an error if the record isn't terminated or lacks its required
+// field: K for a Memorized record, and otherwise D or a price line.
 func ReadRecord(sc scanner.Scanner, account, accountType string) (*Record, scanner.Scanner, error) {
 	saved, sname, record := sc, "transaction", Record{Line: sc.Line, Col: sc.Col, Account: account, Type: accountType}
 

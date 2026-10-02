@@ -35,6 +35,8 @@ import (
 	"github.com/maloquacious/qif/reader"
 )
 
+// JSON is the data for a JSON file. Transactions are in input order and
+// include both halves of each transfer. A section the file lacks is null.
 type JSON struct {
 	Accounts     []Account     `json:"accounts"`
 	Categories   []Category    `json:"categories"`
@@ -42,6 +44,8 @@ type JSON struct {
 	logger       *slog.Logger
 }
 
+// Account is an account from the account list. Type is bank, creditCard,
+// cash, asset, liability, investment, brokerage or retirement.
 type Account struct {
 	Type                 string `json:"type"`
 	Name                 string `json:"name"`
@@ -51,6 +55,7 @@ type Account struct {
 	StatementBalanceDate string `json:"statement_date,omitempty"`
 }
 
+// Category is a category from the category list.
 type Category struct {
 	Name        string `json:"name"`
 	Description string `json:"descr,omitempty"`
@@ -59,6 +64,7 @@ type Category struct {
 	TaxSchedule string `json:"tax_schedule,omitempty"`
 }
 
+// Transaction is a transaction. Its splits are in the "lines" key.
 type Transaction struct {
 	Line          int     `json:"line,omitempty"`
 	Type          string  `json:"type,omitempty"`
@@ -71,6 +77,7 @@ type Transaction struct {
 	Split         []Split `json:"lines,omitempty"`
 }
 
+// Split is one line of a transaction.
 type Split struct {
 	Line     int    `json:"line,omitempty"`
 	Account  string `json:"account,omitempty"`
@@ -80,7 +87,7 @@ type Split struct {
 }
 
 // Translate converts the reader's data. Write logs to logger; a nil logger
-// discards the log.
+// discards the log. It returns an error for an account of unknown type.
 func Translate(r *reader.Reader, logger *slog.Logger) (*JSON, error) {
 	j := JSON{logger: logger}
 
@@ -157,6 +164,7 @@ func Translate(r *reader.Reader, logger *slog.Logger) (*JSON, error) {
 	return &j, nil
 }
 
+// Write writes the data as indented JSON.
 func (j *JSON) Write(w io.Writer) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")

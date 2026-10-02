@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-// Package ledger translates QIF data to ledger.
+// Package ledger translates QIF data to Ledger (ledger-cli.org) text.
 package ledger
 
 import (
@@ -34,8 +34,11 @@ import (
 	"github.com/maloquacious/qif/stdlib"
 )
 
-// Translate converts the reader's transactions. Write logs to logger; a nil
-// logger discards the log.
+// Translate converts the reader's transactions, sorted by date and then
+// input line. Amounts change sign, except in a single-line "Opening
+// Balance". Write logs to logger; a nil logger discards the log. It
+// returns an error for a single-line opening balance in an account of
+// unknown type.
 func Translate(r *reader.Reader, logger *slog.Logger) (*Ledger, error) {
 	l := &Ledger{logger: logger}
 

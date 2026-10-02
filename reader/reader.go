@@ -41,6 +41,9 @@ import (
 	"github.com/maloquacious/qif/scanner"
 )
 
+// Reader holds the data read from a QIF file. Accounts, Categories,
+// Securities and Tags stay nil when the file has no such section (or only
+// empty ones). The slices hold records in input order.
 type Reader struct {
 	active struct {
 		account     string
@@ -55,6 +58,20 @@ type Reader struct {
 	Prices       []*transaction.Record `json:"-"`
 }
 
+// Read reads QIF data from sc until the end of the input. It returns the
+// first error found, prefixed with the line (and usually the column) where
+// it occurs.
+//
+// Transaction records don't name their account, so Read sets each one's
+// Account and Type from the active account. Quicken writes a one-record
+// !Account section before each account's transactions; that record
+// becomes the active account. The first !Account section is the account
+// list, even when it has one record.
+//
+// It is an error for a transaction section to appear before any account
+// is active, or for its header not to match the active account's type,
+// and for a second account list, category list or tag list to appear.
+// Records from several security sections are combined.
 func Read(sc scanner.Scanner) (*Reader, error) {
 	var r Reader
 	for len(sc.Buffer) != 0 {

@@ -22,7 +22,9 @@
  * SOFTWARE.
  */
 
-// Package main implements a command line tool to convert QIF data to CSV.
+// Command qifxlat reads a QIF file and writes its data as CSV, JSON or
+// Ledger text. With no output files, it only checks that the file parses.
+// Run it with -h for the flags and their environment variables.
 package main
 
 import (

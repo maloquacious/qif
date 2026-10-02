@@ -22,7 +22,9 @@
  * SOFTWARE.
  */
 
-// Package qif converts QIF (Quicken Interchange Format) data.
+// Package qif converts QIF (Quicken Interchange Format) data. This package
+// only reports the module version; the parser is in package reader and the
+// CSV, JSON and Ledger writers are under writer.
 package qif
 
 import (
@@ -35,7 +37,7 @@ func Version() semver.Version {
 	return semver.Version{
 		Major:      0,
 		Minor:      12,
-		Patch:      0,
+		Patch:      1,
 		PreRelease: "",
 		Build:      semver.Commit(),
 	}
